@@ -42,9 +42,15 @@ export function fmtUSD(n: number): string {
   return `$${n.toFixed(n < 100 ? 2 : 0)}`;
 }
 
+/** The first n UTF-16 units of s, without a dangling half of a surrogate pair (an emoji cut in two shows as �). */
+export const cut = (s: string, n: number) => {
+  const t = s.slice(0, n);
+  return /[\uD800-\uDBFF]$/.test(t) ? t.slice(0, -1) : t;
+};
+
 export const oneLine = (s: string, max = 120) => {
   const t = s.replace(/\s+/g, ' ').trim();
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+  return t.length > max ? `${cut(t, max - 1)}…` : t;
 };
 
 export const shortModel = (m: string) => m.replace(/^claude-/, '').replace(/-\d{8}$/, '');

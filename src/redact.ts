@@ -57,7 +57,14 @@ const AFTER_ASSIGNMENTS: [RegExp, Replacement][] = [
 
 export function redactSecrets(s: string): string {
   const apply = (acc: string, [re, rep]: [RegExp, Replacement]) => acc.replace(re, rep as string);
-  return AFTER_ASSIGNMENTS.reduce(apply, redactAssignments(SECRETS.reduce(apply, s)));
+  try {
+    return AFTER_ASSIGNMENTS.reduce(apply, redactAssignments(SECRETS.reduce(apply, s)));
+  } catch (err) {
+    // A run of several million characters (a base64url blob) overflows the regex backtrack stack. The text
+    // could not be checked, so none of it is shown: over-redacting beats leaking or failing the export.
+    if (err instanceof RangeError) return `[REDACTED: ${s.length.toLocaleString('en-US')} characters too long to check for secrets]`;
+    throw err;
+  }
 }
 
 /** Replaces the project directory with <project> and home directories with ~ (removes user names). */

@@ -4,7 +4,8 @@
 
 import { readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { num, readLines, type SessionFiles } from './claude.js';
+import { num, parseTs, readLines, type SessionFiles } from './claude.js';
+import { cut } from './format.js';
 import type { Item, Session, ToolCall, UsageEvent } from './types.js';
 
 type Rec = any; // JSONL records are untrusted, loosely-typed input
@@ -101,7 +102,7 @@ export function parseCodex(files: SessionFiles): Session {
       raw(`Unreadable line ${lineNo}`, rawLine);
       continue;
     }
-    const t = typeof rec.timestamp === 'string' ? Date.parse(rec.timestamp) : NaN;
+    const t = parseTs(rec.timestamp);
     if (Number.isFinite(t)) {
       ts = t;
       if (!first || t < first) first = t;
@@ -220,7 +221,7 @@ export function parseCodex(files: SessionFiles): Session {
     source: 'codex',
     file: files.main,
     project: cwd ?? '(unknown folder)', // the day folder a rollout sits in says nothing about the project
-    title: (prompt?.kind === 'user' ? prompt.text : '(no prompt)').replace(/\s+/g, ' ').trim().slice(0, 140),
+    title: cut((prompt?.kind === 'user' ? prompt.text : '(no prompt)').replace(/\s+/g, ' ').trim(), 140),
     start: first,
     end: last,
     models: [...models],

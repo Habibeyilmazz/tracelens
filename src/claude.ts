@@ -4,6 +4,7 @@
 
 import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { cut } from './format.js';
 import type { Item, Session, Subagent, ToolCall, Usage, UsageEvent } from './types.js';
 
 export interface SessionFiles {
@@ -102,20 +103,42 @@ export interface Line {
 
 export function readLines(path: string): Line[] {
   const out: Line[] = [];
-  readFileSync(path, 'utf8')
-    .split('\n')
-    .forEach((raw, i) => {
-      if (!raw.trim()) return;
-      let rec: Rec;
-      try {
-        rec = JSON.parse(raw);
-      } catch {
-        rec = undefined;
-      }
-      // Only plain objects count as records; anything else is shown raw.
-      out.push({ rec: rec && typeof rec === 'object' && !Array.isArray(rec) ? rec : undefined, raw, lineNo: i + 1 });
-    });
+  // Split the bytes, not one string: V8 caps a string at 512 MB, so a bigger file could not be read whole.
+  const buf = readFileSync(path);
+  // A byte-order mark from a Windows editor would make line 1 unreadable.
+  let start = buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf ? 3 : 0;
+  for (let lineNo = 1; start < buf.length; lineNo++) {
+    const nl = buf.indexOf(10, start);
+    const end = nl < 0 ? buf.length : nl;
+    const raw = buf.toString('utf8', start, end);
+    start = end + 1;
+    if (!raw.trim()) continue;
+    let rec: Rec;
+    try {
+      rec = JSON.parse(raw);
+      // Nesting 200 levels deep needs at least 400 characters, so short lines skip the walk.
+      if (raw.length > 400 && tooDeep(rec)) rec = undefined;
+    } catch {
+      rec = undefined;
+    }
+    // Only plain objects count as records; anything else is shown raw. The text is kept only for those.
+    const ok = rec && typeof rec === 'object' && !Array.isArray(rec);
+    out.push({ rec: ok ? rec : undefined, raw: ok ? '' : raw, lineNo });
+  }
   return out;
+}
+
+// No real log nests this deep. Stringifying, redacting and rendering recurse, so a record nested 100,000 levels
+// deep would overflow the stack and take its whole session down; it is shown as an unreadable line instead.
+const tooDeep = (v: unknown, depth = 0): boolean =>
+  depth > 200 || (typeof v === 'object' && v !== null && Object.values(v).some((x) => tooDeep(x, depth + 1)));
+
+// Before 2000 or from 2100 on, a timestamp is a broken clock or a placeholder. Trusting it would stretch
+// durations and the daily charts across centuries (a year-9999 date made the day list loop forever).
+const MIN_TS = Date.UTC(2000, 0, 1), MAX_TS = Date.UTC(2100, 0, 1);
+export function parseTs(v: unknown): number {
+  const t = typeof v === 'string' ? Date.parse(v) : NaN;
+  return t >= MIN_TS && t < MAX_TS ? t : NaN;
 }
 
 export function textOf(content: unknown): string {
@@ -163,7 +186,7 @@ function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
       raw(`Unreadable line ${lineNo}`, rawLine);
       continue;
     }
-    const t = typeof rec.timestamp === 'string' ? Date.parse(rec.timestamp) : NaN;
+    const t = parseTs(rec.timestamp);
     if (Number.isFinite(t)) {
       ts = t;
       if (!ctx.firstTs || t < ctx.firstTs) ctx.firstTs = t;
@@ -294,7 +317,7 @@ export function parseSession(files: SessionFiles): Session {
     source: 'claude-code',
     file: files.main,
     project: cwd ?? basename(dirname(files.main)),
-    title: titleSource.replace(/\s+/g, ' ').trim().slice(0, 140),
+    title: cut(titleSource.replace(/\s+/g, ' ').trim(), 140),
     start: ctx.firstTs,
     end: ctx.lastTs,
     models: [...ctx.models],
