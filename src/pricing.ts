@@ -50,6 +50,15 @@ export function parsePricing(data: any, where = 'pricing'): Pricing {
 /** The longest pricing key that appears in the model id as a whole token ("claude-opus-4" prices
  *  "claude-opus-4-20250514" but not "claude-opus-4-1-…", and "gpt-5" prices "gpt-5-codex" but not "gpt-5.2"). */
 export function ratesFor(pricing: Pricing, model: string): Rates | undefined {
+  // Called once per request in every session; the scan over all keys was most of the insights page's time.
+  let memo = matched.get(pricing);
+  if (!memo) matched.set(pricing, (memo = new Map()));
+  if (!memo.has(model)) memo.set(model, scanRates(pricing, model));
+  return memo.get(model);
+}
+const matched = new WeakMap<Pricing, Map<string, Rates | undefined>>(); // a loaded table is never changed
+
+function scanRates(pricing: Pricing, model: string): Rates | undefined {
   let best: string | undefined;
   for (const key of Object.keys(pricing)) {
     const i = model.indexOf(key);
