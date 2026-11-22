@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (round 15, feature: CSV download of the insights tables)
+
+Chosen after using the demo: the insights page is where the numbers are, but nothing on it could leave the page except by copying text like `3.94M` and `$8.01` (rounded, and only the top 20 tools and files). Putting cost per project or per day into a spreadsheet (an expense report, a team budget) is the next thing you want, and it was on the roadmap.
+
+- Each insights table has a `CSV` link: tokens and cost per day (the data behind both charts), by project, by model, all tools, all edited files. The link keeps the page's range and project (`/insights.csv?table=projects&days=30&project=…`) and downloads `tracelens-<table>[-<N>d].csv`.
+- Raw numbers: token counts, milliseconds, USD to 6 decimals. Every row: the page shows the top 20 tools and files, the CSV all of them (`computeInsights` no longer cuts files at 20; the page does). A model without a price has an empty cost cell, not `0`.
+- Safe to open in a spreadsheet: RFC 4180 quoting (commas, quotes and line breaks stay in their cell), CRLF line ends, and a leading `'` on any text cell starting with `=`, `+`, `-`, `@`, tab or CR, since project paths, model, tool and file names come from the logs (OWASP's advice on CSV injection). The file starts with a UTF-8 byte-order mark so Excel reads non-ASCII paths; Python's `csv` module needs `encoding="utf-8-sig"` to drop it.
+- An unknown or missing `table` is a 400 naming the five allowed values.
+- Tests: CSV shape, totals matching the page's cost, quoting and the formula guard (checked: fails without the guard), every row beyond 20, the empty cost for an unpriced model; the endpoint over HTTP with filters, headers and bad tables; the links on the page; and an E2E step that clicks "Download all tools as CSV" in Chromium and reads the file.
+
+### Notes for the next person (round 15)
+
+- Reported gaps re-checked: none is a bug. `..jsonl` names and ~160-word searches are unchanged documented limits. Safari and Firefox are still untested (only Chromium is installed). The insights page at 1280px and 390px (dark) was looked at after the change: no sideways scroll.
+- Not done on purpose: no CSV for "Slowest tool calls" (it is a top-10 list of links into transcripts, not data), and no CLI command for the same tables (`ccusage` already covers terminal and JSON reports well). Either is a few lines on top of `insightsCsv` in `src/insights.ts` if someone asks.
+
 ### Changed (round 14, launch pass)
 
 - `docs/demo.gif`, the first thing the README shows, was recorded in round 6 and no longer matched the app: its search for `timeout` showed tool inputs as escaped JSON and no project filter. Re-recorded from the running demo with `scripts/demo-gif.mjs`, which now types the two-word search `refund decimal` (the README's own example). Frames checked by eye.
