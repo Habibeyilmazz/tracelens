@@ -67,13 +67,14 @@ function outputOf(o: unknown): { text: string; failed: boolean } {
       try {
         const j = JSON.parse(o);
         if (typeof j?.output === 'string' && typeof j.metadata?.exit_code === 'number') return { text: j.output, failed: j.metadata.exit_code !== 0 };
+        if (j?.success === false) return { text: o, failed: true };
       } catch {
         // plain text that happens to start with '{'
       }
     }
     // Newer versions start shell results with "Exit code: N" or "Process exited with code N".
     const head = o.split('\n', 4).join('\n');
-    const code = /^(?:Exit code:|Process exited with code) (\d+)/m.exec(head);
+    const code = /^(?:Exit code:|Process exited with code) (-?\d+)/m.exec(head);
     return { text: o, failed: !!code && code[1] !== '0' };
   }
   const r = o as Rec;

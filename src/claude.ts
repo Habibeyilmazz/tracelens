@@ -225,7 +225,8 @@ function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
         ctx.usage.set(key, { ts, model, usage: toUsage(msg.usage) });
       }
       const error = rec.isApiErrorMessage === true;
-      const blocks = typeof content === 'string' ? [{ type: 'text', text: content }] : Array.isArray(content) ? content : [];
+      // Content in a shape we do not know (an object, a number) falls through to a raw item below, never vanishes.
+      const blocks = typeof content === 'string' ? [{ type: 'text', text: content }] : Array.isArray(content) ? content : content == null ? [] : [content];
       for (const b of blocks) {
         if (b?.type === 'text' && typeof b.text === 'string') {
           if (b.text.trim()) push({ kind: 'assistant', n: ctx.n++, ts, text: b.text, model, error });

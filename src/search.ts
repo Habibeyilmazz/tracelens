@@ -18,7 +18,7 @@ function searchable(it: Item): [string, string][] {
   switch (it.kind) {
     case 'tool':
       return [
-        [`${it.name} input`, JSON.stringify(it.input ?? '')],
+        [`${it.name} input`, textValues(it.input)],
         [`${it.name} output`, it.output ?? ''],
       ];
     case 'raw':
@@ -27,6 +27,11 @@ function searchable(it: Item): [string, string][] {
       return [[it.kind, it.text]];
   }
 }
+
+// The strings inside a tool input, unescaped: JSON.stringify turns C:\x into C:\\x and " into \", so searching
+// for the text as the page shows it would miss. Depth is bounded: records nested over 200 levels are not parsed.
+const textValues = (v: unknown): string =>
+  typeof v === 'string' ? v : v && typeof v === 'object' ? Object.values(v).map(textValues).filter(Boolean).join('\n') : v == null ? '' : String(v);
 
 const CONTEXT = 70;
 

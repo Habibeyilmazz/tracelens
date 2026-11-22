@@ -16,6 +16,7 @@ import { exportMarkdown } from '../src/markdown.js';
 import { redactSession } from '../src/redact.js';
 import { sessionStats } from '../src/insights.js';
 import { Store } from '../src/store.js';
+import { search } from '../src/search.js';
 
 const pricing = loadPricing();
 const user = (text: string, timestamp = '2026-03-08T09:30:00Z') =>
@@ -177,4 +178,23 @@ test('a session file over 2 GiB is skipped with a warning; the other sessions st
     }
     assert.match(warnings.join('\n'), /skipped .*huge\.jsonl/);
   });
+});
+
+test('assistant content in an unknown shape (an object, not a list) is shown raw, not dropped', () => {
+  const rec = JSON.stringify({ type: 'assistant', timestamp: '2026-03-08T09:31:00Z', message: { id: 'm1', model: 'claude-sonnet-4-5', content: { type: 'future_block', text: 'x' } } });
+  const s = parse(`${user('hi')}\n${rec}\n`);
+  assert.ok(s.items.some((i) => i.kind === 'raw' && /future_block/.test(i.label)));
+});
+
+test('search finds tool input text as shown, without JSON escapes (Windows paths, quotes)', () => {
+  const call = JSON.stringify({ type: 'assistant', timestamp: '2026-03-08T09:31:00Z', message: { id: 'm1', model: 'claude-sonnet-4-5', content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: 'C:\\work\\report.txt', pattern: 'say "hi"' } }] } });
+  const s = parse(`${user('hi')}\n${call}\n`);
+  for (const q of ['C:\\work\\report.txt', 'say "hi"']) assert.equal(search([s], q)[0]?.total, 1, q);
+});
+
+test('Codex: a negative exit code and a JSON-text output with success:false are failures', () => {
+  const call = (id: string) => ({ timestamp: '2026-03-08T10:00:00Z', type: 'response_item', payload: { type: 'function_call', name: 'shell', call_id: id, arguments: '{}' } });
+  const out = (id: string, output: string) => ({ timestamp: '2026-03-08T10:00:01Z', type: 'response_item', payload: { type: 'function_call_output', call_id: id, output } });
+  const s = withCodex([call('a'), out('a', 'Exit code: -1\nkilled'), call('b'), out('b', '{"success":false,"content":"denied"}'), call('c'), out('c', 'Exit code: 0\nok')]);
+  assert.deepEqual(s.items.filter((i) => i.kind === 'tool').map((i) => i.kind === 'tool' && i.isError), [true, true, false]);
 });
