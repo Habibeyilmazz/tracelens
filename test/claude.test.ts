@@ -117,6 +117,18 @@ test('Claude Code bookkeeping: summary-only files are hidden, <synthetic> messag
   }
 });
 
+test('an unreadable loose agent file does not break discovery', { skip: process.getuid?.() === 0 && 'root can read anything' }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    mkdirSync(join(dir, 'p'));
+    writeFileSync(join(dir, 'p', 's.jsonl'), JSON.stringify({ type: 'user', message: { content: 'hi' } }) + '\n');
+    writeFileSync(join(dir, 'p', 'agent-x.jsonl'), '{}\n', { mode: 0o000 });
+    assert.deepEqual(new Store(dir).sessions().map((s) => s.id), ['s']);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
 test('garbage input never throws', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
   try {

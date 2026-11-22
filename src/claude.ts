@@ -71,8 +71,10 @@ function safeReaddir(dir: string) {
 }
 
 function firstRecord(path: string): Rec | undefined {
-  const fd = openSync(path, 'r');
+  let fd: number | undefined;
   try {
+    // Inside the try: an unreadable or vanished agent file must not break discovery of every session.
+    fd = openSync(path, 'r');
     const buf = Buffer.alloc(64 * 1024);
     const n = readSync(fd, buf, 0, buf.length, 0);
     const line = buf.subarray(0, n).toString('utf8').split('\n')[0];
@@ -80,7 +82,7 @@ function firstRecord(path: string): Rec | undefined {
   } catch {
     return undefined;
   } finally {
-    closeSync(fd);
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
