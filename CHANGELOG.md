@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed (round 13, reliability pass: each bug reproduced, then a failing test, then the fix)
+
+- Numbers that round into the next unit: a 59.6 s tool call showed as `60s`, 999.6 ms as `1000ms`, 999,999 tokens as `1000k`, $99.996 as `$100.00`. They now read `1m 00s`, `1.0s`, `1.00M`, `$100`.
+- Emoji cut in half, shown as `�`: search snippets (the 70 characters around a match), the 40,000-character clip on session pages, and the 500-character limit on a search query.
+- A session with no timestamp at all showed its duration as `0ms` next to a start of `—`; it is now `—` in the list, the session header, `tracelens list` and the Markdown export.
+- Codex discovery followed a symlink back up (`2026/up -> ..`) round and round: each rollout was listed 33 times. Symlinked folders are still read (a year kept on another disk), each folder once by its real path. Only files and links count as rollouts, so a FIFO named `rollout-*.jsonl` cannot hang a scan.
+- A record still being written (the last line, no newline yet) showed as "Unreadable line N" on live session pages until the next refresh. It is now left out until it is complete; a broken line that ends in a newline is still shown raw. The E2E live test appends half a record and checks the page (checked: it fails without the fix).
+- One placeholder timestamp in 2099 made the insights chart 26,705 days long (a 5 MB page) and kept its session marked live forever, because the upper bound was the year 2100. Timestamps more than a day in the future are now ignored (the day covers timestamps without a zone, read as local time).
+- Day chart axis labels were `MM-DD` only, so a range from 2025-08-01 to 2026-11-21 read "08-01 … 11-21". They show the year when the range spans more than one year.
+- Search missed text in another Unicode normalization form: `café` typed as one code point did not find `cafe` + combining accent, the form macOS often uses for file names in tool output. Query and text are compared in NFC; about 13 ms more per query on ~4,800 sessions (30 to 43 ms, this Mac).
+
+### Notes for the next person (round 13)
+
+- How the bugs were found: a throwaway structural fuzzer (random record shapes and value types in every field for both adapters, CRLF, junk lines, inline and file subagents; 1,650 generated log folders through the store, every page, both exports, redaction, search and insights; not kept) found no crash. The bugs above came from probing by hand: formatter boundaries, emoji at slice boundaries, odd CLI arguments, odd URLs against a running server, odd folder and file names (`#`, `%`, `?`, NFD, emoji, leading space), symlink loops, partial writes, far dates, and the suite under seven time zones.
+- Checked and fine: every odd URL tried (bad percent-encoding, `__proto__` sort, `days=1e400`, 100 KB query string gets Node's 431); folder and file names with `#`, `%`, `?`, `&`, emoji, NFD and a leading space all open and export; the suite passes under Los Angeles, Kolkata, Lord Howe, Chatham, St John's and Istanbul. Under Pago Pago (UTC-11) three insights tests fail because the fixture days shift, the same intended local-day behaviour round 5 noted for UTC+14; `npm test` pins `TZ=UTC`.
+- Known, not fixed: a Claude Code session file named `..jsonl` or `.jsonl` is listed but cannot be opened (browsers fold `.`/`..` out of URLs; Claude Code names files by UUID). Symlinked project folders under the Claude Code projects folder are skipped, as before. A search with ~160 distinct words takes about 1.4 s on 4,800 sessions (one regex alternation over every text); normal queries are unaffected. The Web UI Markdown renderer is quadratic in list nesting depth (3,000 levels: 0.4 s), which the 40,000-character clip keeps small on pages; an HTML export of such a message has no clip.
+- Reported gaps re-checked: the Codex review hit its usage limit again ("try again at 9:32 AM"). The security-review skill was not run (this round changed no security-relevant code). Safari and Firefox are still untested (only Chromium is installed), axe was not re-run (the only UI change is chart label text), `docs/demo.gif` was not re-recorded. Ranking by match count is a feature question, not a reliability bug, and was left alone.
+
 ### Added (round 12, feature: search by several words)
 
 Chosen after using the demo as a newcomer: searching for the words you remember (`refund decimal`, `dark mode chart`) found nothing, because search matched the whole query as one exact string, even though those sessions were in the list. Finding a past session is what search is for, so this hurt most.
