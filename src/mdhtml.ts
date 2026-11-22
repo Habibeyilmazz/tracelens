@@ -114,14 +114,20 @@ export function inline(s: string): string {
     .split(/(`+[^`]*?`+)/)
     .map((part, k) => {
       if (k % 2) return `<code>${esc(part.replace(/^`+ ?| ?`+$/g, ''))}</code>`;
-      return esc(part)
-        // Brackets are excluded inside the label and the URL, so long runs of '[' or of unclosed links stay linear
-        // (an IPv6 literal URL such as http://[::1]/ stays text).
+      // Brackets are excluded inside the label and the URL, so long runs of '[' or of unclosed links stay linear
+      // (an IPv6 literal URL such as http://[::1]/ stays text). Links are cut out before emphasis so a '*' in a
+      // URL never puts <em> inside the href; split() gives [text, label, url, text, label, url, …, text].
+      const bits = esc(part)
         .replace(/!\[([^[\]]*)\]\([^)\s[\]]*\)/g, '$1')
-        .replace(/\[([^[\]]+)\]\((https?:\/\/[^)\s[\]]+)\)/g, '<a href="$2" rel="noreferrer">$1</a>')
-        // No '*' inside a span: keeps these linear on long runs of unmatched asterisks.
-        .replace(/\*\*([^\s*](?:[^*]*[^\s*])?)\*\*/g, '<strong>$1</strong>')
-        .replace(/(^|[^\w*])\*([^\s*](?:[^*]*[^\s*])?)\*(?![\w*])/g, '$1<em>$2</em>');
+        .split(/\[([^[\]]+)\]\((https?:\/\/[^)\s[\]]+)\)/);
+      let out = '';
+      for (let i = 0; i < bits.length; i += 3)
+        out += emphasis(bits[i]) + (i + 2 < bits.length ? `<a href="${bits[i + 2]}" rel="noreferrer">${emphasis(bits[i + 1])}</a>` : '');
+      return out;
     })
     .join('');
 }
+
+// No '*' inside a span: keeps these linear on long runs of unmatched asterisks.
+const emphasis = (s: string) =>
+  s.replace(/\*\*([^\s*](?:[^*]*[^\s*])?)\*\*/g, '<strong>$1</strong>').replace(/(^|[^\w*])\*([^\s*](?:[^*]*[^\s*])?)\*(?![\w*])/g, '$1<em>$2</em>');

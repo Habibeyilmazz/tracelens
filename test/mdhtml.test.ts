@@ -23,6 +23,11 @@ test('markdown: only http(s) links become anchors, images are never loaded', () 
   assert.equal(mdToHtml('[x](javascript:alert(1))'), '<p>[x](javascript:alert(1))</p>');
   assert.equal(mdToHtml('[x](https://a.test/"onmouseover="alert(1))'), '<p><a href="https://a.test/&quot;onmouseover=&quot;alert(1" rel="noreferrer">x</a>)</p>');
   assert.equal(mdToHtml('![diagram](https://tracker.test/pixel.png)'), '<p>diagram</p>');
+  // Emphasis never reaches into a URL, but still works in the label and around the link.
+  assert.equal(
+    mdToHtml('*see* [**a** *b*](https://x.test/*c*/**d**) **ok**'),
+    '<p><em>see</em> <a href="https://x.test/*c*/**d**" rel="noreferrer"><strong>a</strong> <em>b</em></a> <strong>ok</strong></p>',
+  );
 });
 
 test('markdown: fenced code is kept verbatim, an unclosed fence runs to the end', () => {
