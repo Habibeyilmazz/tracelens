@@ -35,6 +35,22 @@ test('quoted secrets are redacted whole, and secret-named keys in tool inputs to
   assert.deepEqual((r.items[0] as { input: unknown }).input, { password: '[REDACTED]', api_key: '[REDACTED]', count: 'ok' });
 });
 
+test('redaction stays linear on long adversarial runs (no regex backtracking blow-up)', () => {
+  // Each of these took seconds at 40 KB and minutes at 1 MB with the old patterns; tool output is untrusted.
+  const units = ['a', 'a.', 'a-', 'eyJa-', 'ghp_', 'AKIA', 'token', 'token-', 'a@', 'a://a:', '/Users/', 'C:\\Users\\', 'token="', "token='", 'token=\\', 'x='];
+  const t = performance.now();
+  for (const u of units) redact(u.repeat(Math.ceil(200_000 / u.length)), '/p');
+  assert.ok(performance.now() - t < 3000, `took ${Math.round(performance.now() - t)}ms`);
+});
+
+test('secret assignments inside other values are still found', () => {
+  assert.equal(redactSecrets('url: https://x.test/cb?token=abcdef123'), 'url: https://x.test/cb?token=[REDACTED]');
+  assert.equal(redactSecrets('-H "x-api-key: abcdef123"'), '-H "x-api-key: [REDACTED]"');
+  assert.equal(redactSecrets('max_tokens: 4096, tokenizer: cl100k'), 'max_tokens: 4096, tokenizer: [REDACTED]');
+  const jwt = 'eyJ' + 'h'.repeat(20) + '.' + 'p'.repeat(20) + '.' + 's'.repeat(20);
+  assert.equal(redactSecrets(`id_token=${jwt} raw ${jwt}`), 'id_token=[REDACTED] raw [REDACTED]');
+});
+
 test('ordinary numbers and words survive secret redaction', () => {
   const text = '"input_tokens": 123456, max_tokens: 4096, token count is fine';
   assert.equal(redactSecrets(text), text);
