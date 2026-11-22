@@ -47,6 +47,8 @@ No logs on this machine, or want to look first? `npm run demo` generates 25 made
 
 ## Command line
 
+After the quickstart there is no `tracelens` command yet: run these as `node dist/src/cli.js <command>` from the repo folder, or run `npm link` there once to get `tracelens` on your PATH (it creates a global symlink; `npm unlink -g tracelens` removes it). tracelens is not on npm, and the npm package named `tracelens` is an unrelated project, so do not use `npx tracelens`.
+
 ```text
 tracelens serve [--port 4180] [--no-open]   Open the web UI on 127.0.0.1
 tracelens list [--limit 20]                 Print recent sessions and their ids
@@ -71,8 +73,6 @@ node dist/src/cli.js export 3f2a --redact -o session.md
 node dist/src/cli.js export ~/.claude/projects/-Users-me-app/3f2a….jsonl -o session.html
 node dist/src/cli.js export ~/.codex/sessions/2026/11/20/rollout-2026-11-20T09-12-03-7c1e….jsonl -o codex.md
 ```
-
-To get a `tracelens` command on your PATH, run `npm link` in the repo (it creates a global symlink; `npm unlink -g tracelens` removes it).
 
 ## Compared with other tools
 
@@ -142,7 +142,7 @@ Ideas, not promises:
 - A search index for very large histories (search is a linear scan over sessions held in memory today).
 - Read session files over 2 GB by streaming them (they are skipped with a warning today).
 - CSV export of the insights tables.
-- Publish as an npm package so `npx tracelens serve` works without cloning.
+- Publish as an npm package so it runs without cloning (under another name: `tracelens` on npm belongs to an unrelated package).
 
 ## Known limits
 
