@@ -30,7 +30,8 @@ function redactAssignments(s: string): string {
 
 // Patterns that can repeat their own first character start only where a run of those characters starts
 // ((?<!…) instead of \b), so a long run without a match is scanned once, not once per position.
-const SECRETS: [RegExp, string][] = [
+type Replacement = string | ((m: string) => string);
+const SECRETS: [RegExp, Replacement][] = [
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)/g, '[REDACTED PRIVATE KEY]'],
   [/\bsk-ant-[A-Za-z0-9_-]{10,}/g, R],
   [/\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}/g, R],
@@ -40,16 +41,22 @@ const SECRETS: [RegExp, string][] = [
   [/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, R],
   [/\bAIza[0-9A-Za-z_-]{35}\b/g, R],
   [/\bnpm_[A-Za-z0-9]{36}\b/g, R],
-  [/(?<![\w-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, R],
+  // A JWT: three dotted segments whose header starts with eyJ at the start of the run or after a '-' (where \beyJ
+  // matched). Each dotted run is matched once and the header looked up inside it.
+  [/(?<![\w-])[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, (m) => {
+    const h = /(?:^|-)eyJ[\w-]{8}/.exec(m.slice(0, m.indexOf('.')));
+    return h ? `${m.slice(0, h.index + (h[0][0] === '-' ? 1 : 0))}${R}` : m;
+  }],
   [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{16,}/gi, `$1 ${R}`],
 ];
-const AFTER_ASSIGNMENTS: [RegExp, string][] = [
-  [/(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*:\/\/)[^\s:/@]+:[^\s@/]+@/gi, `$1${R}@`],
+const AFTER_ASSIGNMENTS: [RegExp, Replacement][] = [
+  // user:password@ right after any "://"; anchoring on "://" instead of the scheme keeps it linear.
+  [/(:\/\/)[^\s:/@]+:[^\s@/]+@/g, `$1${R}@`],
   [/(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]'],
 ];
 
 export function redactSecrets(s: string): string {
-  const apply = (acc: string, [re, rep]: [RegExp, string]) => acc.replace(re, rep);
+  const apply = (acc: string, [re, rep]: [RegExp, Replacement]) => acc.replace(re, rep as string);
   return AFTER_ASSIGNMENTS.reduce(apply, redactAssignments(SECRETS.reduce(apply, s)));
 }
 
