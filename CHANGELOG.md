@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (round 6, launch pass)
+
+- README: one-line pitch, a hero image (`assets/hero.png`, generated with Codex), a 14-second demo GIF (`docs/demo.gif`) recorded from the running demo, a comparison with ccusage, claude-code-log, Claude Code's own `--resume` and OpenTelemetry export, and LLM tracing platforms, a "Known limits" section, and an updated roadmap.
+- `scripts/demo-gif.mjs`: re-records the demo GIF with Playwright and ffmpeg from a running server.
+- `CONTRIBUTING.md`, `SECURITY.md`, and issue forms for bugs, unrecognized log records (asks for the record's shape with made-up values, never a real log) and feature ideas. New repo label `log-format`.
+- Tests for two gaps the last round left open: a session file over 2 GiB (a sparse file, so no disk is used) is skipped with a warning while the other sessions load; and the E2E test now catches a broken `app.js` `reveal()` in Chromium by closing the `<details>` and firing `hashchange` without a navigation (checked: with `reveal()` disabled the test fails).
+
+### Notes for the next person (round 6)
+
+- Repo description now mentions Codex; topics `codex`, `codex-cli`, `anthropic`, `llm` added. Private vulnerability reporting is off on the repo, so `SECURITY.md` falls back to "open an issue asking for a contact". Turning it on (repo Settings, Security) is the owner's call. The hero image would also work as the repo's social preview, which can only be set in the web UI.
+- Still open: the Codex parser has never seen a real rollout log (agents here may not open real logs; the new issue form is how real shapes should arrive). Long-context price tiers are not modelled. Files over 2 GiB are skipped, not streamed.
+- The scratchpad folder is shared with other agents: keep PID files and temp output in a subfolder of your own.
+
 ### Fixed (round 5, reliability pass: each bug reproduced, then a failing test, then the fix)
 
 - A single record nested 100,000 levels deep made its whole session disappear ("Maximum call stack size exceeded"). Records nested more than 200 levels deep are now shown as an "Unreadable line"; the same check covers Codex `function_call` arguments, which are a JSON string parsed later.
