@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed (round 8, performance and accessibility pass)
+
+Measured first on synthetic data only: the 32 demo sessions, and a 118 MB set of 5,000 copies of them in 80 project folders plus one session with 20,000 tool calls (26 MB page). Chromium via Playwright 1.65.1 on this Mac, axe-core 4.10.3 (WCAG 2.0/2.1/2.2 A and AA plus best practices) on every page at 1280px and 390px in both themes, with every `<details>` closed and again with all open.
+
+- Accessibility (axe at 390px found two rules; now none on any page, width or theme):
+  - Tables that scroll sideways on phones (insights) and code/tool-output blocks (scroll past 30rem) take keyboard focus (`tabindex="0"`; insights tables are also named regions), so they can be scrolled without a mouse in browsers that do not focus scrollers by themselves (Safari).
+  - The transcript's time links were 18px tall on phones; now 24px (WCAG 2.2 target size).
+- Reflow: at 320px (400% zoom) a long project path made the Project select wider than the window, so the session list and insights scrolled sideways by about 200px. The select now shrinks. New E2E test opens every fixture page at 320px with all tool calls open and a long project option added (checked: it fails without the fix).
+- Faster long transcripts: top-level transcript rows use `content-visibility:auto` (screen only, so printing is unchanged: same page count and PDF bytes as before). The 20,000-call session loads in 2.3 s instead of 3.9 s (Chromium DOMContentLoaded, 3 runs each). Hash links deep into the page and the live view's jump to the new end were checked to still land in view.
+- Insights page: which pricing row a model uses is remembered per loaded table; the scan over all 41 keys was about two thirds of the page's time. 5,000 sessions: 180 ms to about 95 ms per load.
+- Removed: `assets/logo.png` (referenced nowhere) and the transcript renderer's unused `link` option.
+
+Baseline numbers kept for the next round (5,000-session set, local server, warm unless noted): server listens after ~50 ms; first session list 0.8 s (parses all files), then ~60 ms (3.2 MB HTML, 58k DOM nodes, Chromium load 0.5 s); search ~80 ms; a 304 poll of a live page ~35 ms; 20,000-call session page ~180 ms on the server; redacted HTML export of it ~750 ms; parsed sessions take ~70 MB of heap for 118 MB of logs. A live page with 2,000 tool calls updates without a long task over 60 ms; "Expand all" there takes ~100 ms (10,000 calls: ~380 ms).
+
+### Notes for the next person (round 8)
+
+- Reported gaps re-checked; none is a bug fixable here: list and insights pages are not live (a feature); the Codex multi-request tier is a limit of what the log records; the Codex parser has still not seen a real rollout; files over 2 GiB are still skipped (no real session is near that); private vulnerability reporting is a repo setting for the owner.
+- Not changed on purpose: pages are not gzip-compressed (the server is on 127.0.0.1, so transfer is not the cost; parsing is); the CSS is inlined in every page (~10 KB). A live page re-downloads and swaps the whole transcript when the log grows, which stays cheap up to a few thousand tool calls; an incremental update would be the next step for huge running sessions. SEO does not apply: the UI only runs on 127.0.0.1.
+- The Codex second-opinion review could not run this round (usage limit reached); the checks above were run by hand in Chromium instead.
+
 ### Added (round 7, feature: live session pages)
 
 - A session page follows a running session. Any session with activity in the last hour shows "Live" next to the export form and re-checks its log every 2 seconds while the tab is visible. When the log grows, the header (duration, tokens, cost, errors) and the transcript are swapped in place: tool calls and thinking blocks you opened stay open (matched by the log's timestamp, since item numbers shift when subagent steps arrive), new ones arrive collapsed, and if you were at the bottom the page scrolls to the new end. Chosen after using the demo: the one thing you could not do was keep a session open next to a running agent.

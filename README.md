@@ -35,7 +35,7 @@ No logs on this machine, or want to look first? `npm run demo` generates 25 made
 - **Export** a session as Markdown or as a single self-contained HTML file, from the CLI or the session page, optionally with paths and secrets redacted.
 - **Codex transcripts**: prompts, replies (Markdown), reasoning summaries, and tool calls (`shell`, `apply_patch`, MCP tools, …) paired with their output, timed, and marked red when a command exits non-zero. The environment and `AGENTS.md` text Codex adds to each session is collapsed under "Context added by Codex".
 - **Defensive parsing**: records it does not recognise, and lines that are not valid JSON, are shown raw in the transcript instead of breaking the page.
-- Light and dark themes (follows your system), keyboard-friendly, AA text contrast, and a card layout for the session list on phone-sized screens. No JavaScript frameworks and no runtime dependencies.
+- Light and dark themes (follows your system), keyboard-friendly (scrollable tables and code blocks take focus), AA text contrast, no sideways scrolling down to 320px, and a card layout for the session list on phone-sized screens. No JavaScript frameworks and no runtime dependencies.
 
 ![A Claude Code session in tracelens: session metadata, then the transcript with timed tool calls and a nested subagent](docs/screenshots/session.png)
 
