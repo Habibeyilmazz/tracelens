@@ -13,11 +13,14 @@ export function fmtDate(ts: number): string {
 
 export function fmtDuration(ms: number | undefined): string {
   if (ms === undefined || !Number.isFinite(ms) || ms < 0) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
+  // Each unit ends where its rounding would show the next unit's value (60s, 1000ms).
+  if (ms < 999.5) return `${Math.round(ms)}ms`;
   const s = ms / 1000;
-  if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${pad(Math.floor(s % 60))}s`;
+  if (s < 9.95) return `${s.toFixed(1)}s`;
+  const t = Math.round(s);
+  if (t < 60) return `${t}s`;
+  const m = Math.floor(t / 60);
+  if (m < 60) return `${m}m ${pad(t % 60)}s`;
   return `${Math.floor(m / 60)}h ${pad(m % 60)}m`;
 }
 
@@ -31,15 +34,15 @@ export function fmtOffset(ms: number): string {
 
 export function fmtTokens(n: number): string {
   if (n < 1000) return String(n);
-  if (n < 1e6) return `${(n / 1e3).toFixed(n < 1e4 ? 1 : 0)}k`;
-  if (n < 1e9) return `${(n / 1e6).toFixed(n < 1e7 ? 2 : 1)}M`;
+  if (n < 999_500) return `${(n / 1e3).toFixed(n < 9_950 ? 1 : 0)}k`;
+  if (n < 999_950_000) return `${(n / 1e6).toFixed(n < 9_995_000 ? 2 : 1)}M`;
   return `${(n / 1e9).toFixed(2)}B`;
 }
 
 export function fmtUSD(n: number): string {
   if (n === 0) return '$0';
   if (n < 0.01) return '<$0.01';
-  return `$${n.toFixed(n < 100 ? 2 : 0)}`;
+  return `$${n.toFixed(n < 99.995 ? 2 : 0)}`;
 }
 
 /** The first n UTF-16 units of s, without a dangling half of a surrogate pair (an emoji cut in two shows as �). */

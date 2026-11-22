@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { parseSession } from '../src/claude.js';
 import { parseCodex } from '../src/codex.js';
-import { oneLine } from '../src/format.js';
+import { fmtDuration, fmtTokens, fmtUSD, oneLine } from '../src/format.js';
 import { computeInsights } from '../src/insights.js';
 import { DEFAULT_PRICING_PATH, loadPricing } from '../src/pricing.js';
 import { redactSecrets } from '../src/redact.js';
@@ -199,4 +199,28 @@ test('Codex: a negative exit code and a JSON-text output with success:false are 
   const out = (id: string, output: string) => ({ timestamp: '2026-03-08T10:00:01Z', type: 'response_item', payload: { type: 'function_call_output', call_id: id, output } });
   const s = withCodex([call('a'), out('a', 'Exit code: -1\nkilled'), call('b'), out('b', '{"success":false,"content":"denied"}'), call('c'), out('c', 'Exit code: 0\nok')]);
   assert.deepEqual(s.items.filter((i) => i.kind === 'tool').map((i) => i.kind === 'tool' && i.isError), [true, true, false]);
+});
+
+// Round 13: values that round up into the next unit, and emoji cut in half by snippets and clipping.
+test('formatters roll over to the next unit instead of showing 60s, 1000ms or 1000k', () => {
+  assert.deepEqual([999.6, 9_960, 59_600, 59_999, 3_599_600].map(fmtDuration), ['1.0s', '10s', '1m 00s', '1m 00s', '1h 00m']);
+  assert.deepEqual([999_999, 999_500, 99_999_999, 999_999_999].map(fmtTokens), ['1.00M', '1.00M', '100.0M', '1.00B']);
+  assert.equal(fmtUSD(99.996), '$100');
+});
+
+const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+test('search snippets never cut an emoji in half', () => {
+  // The needle sits so that both 70-character contexts end inside an emoji.
+  const s = parse(`${user('x' + '😀'.repeat(40) + ' needle ' + '😀'.repeat(40))}\n`);
+  const m = search([s], 'needle')[0].matches[0];
+  assert.ok(!lone.test(m.before) && !lone.test(m.after), JSON.stringify([m.before.slice(0, 3), m.after.slice(-3)]));
+  assert.ok(m.before.endsWith('😀 ') && m.after.startsWith(' 😀'));
+});
+
+test('long messages clipped on the session page never end in half an emoji', () => {
+  const s = parse(`${user('x' + '😀'.repeat(30_000))}\n`);
+  const html = sessionPage(s, sessionStats(s, pricing));
+  assert.ok(!lone.test(html));
+  assert.match(html, /more characters/);
 });

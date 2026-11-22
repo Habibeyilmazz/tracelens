@@ -1,3 +1,4 @@
+import { cut } from './format.js';
 import { sessionItems, type Item, type Session } from './types.js';
 
 export interface Match {
@@ -92,9 +93,9 @@ export function search(sessions: Session[], query: string, perSession = 5): Hit[
             m: {
               n: it.n,
               where,
-              before: (i > CONTEXT ? '…' : '') + text.slice(Math.max(0, i - CONTEXT), i),
+              before: (i > CONTEXT ? '…' : '') + text.slice(Math.max(0, i - CONTEXT), i).replace(/^[\uDC00-\uDFFF]/, ''), // no half emoji
               match: m[0],
-              after: text.slice(end, end + CONTEXT) + (end + CONTEXT < text.length ? '…' : ''),
+              after: cut(text.slice(end, end + CONTEXT), CONTEXT) + (end + CONTEXT < text.length ? '…' : ''),
             },
           };
           cands.push(last);

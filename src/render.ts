@@ -1,7 +1,7 @@
 // Server-side HTML for the web UI and the self-contained HTML export.
 // Everything that comes from a log file goes through esc(): transcripts are untrusted input.
 
-import { agentName, esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
+import { agentName, cut, esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
 import type { Insights, Row, SessionStats } from './insights.js';
 import { termSource, terms, type Hit } from './search.js';
 import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
@@ -340,12 +340,12 @@ interface TxOpts {
 
 function clip(text: string, max: number): string {
   if (!max || text.length <= max) return esc(text);
-  return `${esc(text.slice(0, max))}\n<span class="muted">… ${(text.length - max).toLocaleString('en-US')} more characters. Export the session to see all of it.</span>`;
+  return `${esc(cut(text, max))}\n<span class="muted">… ${(text.length - max).toLocaleString('en-US')} more characters. Export the session to see all of it.</span>`;
 }
 
 function clipMd(text: string, max: number): string {
   if (!max || text.length <= max) return mdToHtml(text);
-  return `${mdToHtml(text.slice(0, max))}<p class="muted">… ${(text.length - max).toLocaleString('en-US')} more characters. Export the session to see all of it.</p>`;
+  return `${mdToHtml(cut(text, max))}<p class="muted">… ${(text.length - max).toLocaleString('en-US')} more characters. Export the session to see all of it.</p>`;
 }
 
 export function transcript(s: Session, opts: TxOpts): string {

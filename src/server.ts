@@ -5,6 +5,7 @@ import { exportMarkdown } from './markdown.js';
 import type { Pricing } from './pricing.js';
 import { redactSession } from './redact.js';
 import { APP_JS, esc, exportHtml, insightsPage, page, searchPage, sessionPage, sessionsPage } from './render.js';
+import { cut } from './format.js';
 import { search } from './search.js';
 import { folderOf, type Store } from './store.js';
 import { totalTokens, type Session } from './types.js';
@@ -69,7 +70,7 @@ export function createHandler(store: Store, pricing: Pricing) {
       }
 
       if (path === '/search') {
-        const q = (p.get('q') ?? '').slice(0, 500);
+        const q = cut(p.get('q') ?? '', 500);
         const project = p.get('project') || undefined;
         return send(200, searchPage(q, search(sessions.filter((s) => !project || s.project === project), q), projects, project));
       }
