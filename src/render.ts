@@ -4,7 +4,7 @@
 import { fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
 import type { Insights, Row, SessionStats } from './insights.js';
 import type { Hit } from './search.js';
-import { sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
+import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
 
 const ENT: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => ENT[c]);
@@ -223,7 +223,7 @@ ${hits.length ? `<ul class="hits">${list}</ul>` : `<p class="empty">No matches. 
 // ---------------------------------------------------------------- session + transcript
 
 function sessionHeader(s: Session, st: SessionStats): string {
-  const firstError = sessionToolCalls(s).find((c) => c.isError);
+  const firstError = sessionItems(s).find(isErrorItem);
   const errors = st.errors
     ? `<span class="bad">${st.errors}</span>${firstError ? ` <a href="#i-${firstError.n}">first error</a>` : ''}`
     : '0';
@@ -286,7 +286,7 @@ function subagent(sa: Subagent, ctx: Ctx): string {
 function row(it: Item, ctx: Ctx): string {
   const offset = ctx.s.start && it.ts ? fmtOffset(it.ts - ctx.s.start) : '';
   const time = `<a class="t" href="#i-${it.n}" title="${esc(fmtDate(it.ts))}">${offset}</a>`;
-  const err = (it.kind === 'tool' && it.isError) || ((it.kind === 'assistant' || it.kind === 'system') && it.error);
+  const err = isErrorItem(it);
   return `<div class="row k-${it.kind}${err ? ' error' : ''}" id="i-${it.n}">${time}<div class="c">${body(it, ctx)}</div></div>`;
 }
 

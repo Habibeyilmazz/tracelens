@@ -87,3 +87,6 @@ export function sessionItems(s: Session): Item[] {
 }
 
 export const sessionToolCalls = (s: Session) => sessionItems(s).filter((i): i is ToolCall => i.kind === 'tool');
+
+/** A failed tool call, an API error message or an error-level system event. */
+export const isErrorItem = (it: Item) => (it.kind === 'tool' && it.isError) || ((it.kind === 'assistant' || it.kind === 'system') && it.error);

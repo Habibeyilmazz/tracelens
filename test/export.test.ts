@@ -92,3 +92,9 @@ test('formatters', () => {
   assert.equal(toolLabel({ foo: 1, bar: 'baz' }), 'baz');
   assert.equal(toolLabel(null), '');
 });
+
+test('the header links to the first error even when it is not a tool call', () => {
+  const { a } = fixtureSessions();
+  const s: Session = { ...a, orphanSubagents: [], items: [{ kind: 'system', n: 7, ts: a.start, text: 'API Error: 529', error: true }] };
+  assert.match(exportHtml(s, sessionStats(s, pricing)), /<a href="#i-7">first error<\/a>/);
+});

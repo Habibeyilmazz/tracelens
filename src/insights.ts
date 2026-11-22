@@ -1,5 +1,5 @@
 import { costOf, type Pricing } from './pricing.js';
-import { addUsage, emptyUsage, sessionItems, totalTokens, type Session, type ToolCall, type Usage } from './types.js';
+import { addUsage, emptyUsage, isErrorItem, sessionItems, totalTokens, type Session, type ToolCall, type Usage } from './types.js';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** Calendar day in the machine's local time zone. */
@@ -39,7 +39,7 @@ export function sessionStats(s: Session, pricing: Pricing): SessionStats {
   let errors = 0;
   for (const it of sessionItems(s)) {
     if (it.kind === 'tool') tools++;
-    if ((it.kind === 'tool' && it.isError) || ((it.kind === 'assistant' || it.kind === 'system') && it.error)) errors++;
+    if (isErrorItem(it)) errors++;
   }
   return { usage, cost, unpriced, tools, errors };
 }
