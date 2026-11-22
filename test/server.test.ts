@@ -54,6 +54,7 @@ test('session view shows tools, errors, subagents and raw events', async () => {
   for (const s of ['class="tname">Read<', 'class="tname">Bash<', 'class="flag">error<', 'class="subagent"', 'Unrecognized event: file-history-snapshot', 'Thinking', 'id="i-0"'])
     assert.ok(r.body.includes(s), `missing ${s}`);
   assert.equal((await get('/session/does-not-exist')).status, 404);
+  assert.equal((await get('/session/%E0%A4%A')).status, 400);
 });
 
 test('search highlights matches and escapes the query', async () => {

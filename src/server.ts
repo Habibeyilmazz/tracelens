@@ -73,7 +73,12 @@ export function createHandler(store: Store, pricing: Pricing) {
 
       const m = /^\/session\/([^/]+)(\/export)?$/.exec(path);
       if (m) {
-        const id = decodeURIComponent(m[1]);
+        let id: string;
+        try {
+          id = decodeURIComponent(m[1]);
+        } catch {
+          return send(400, 'Bad session id', 'text/plain');
+        }
         const s = sessions.find((x) => x.id === id);
         if (!s) return send(404, page('Not found', `<h1>Session not found</h1><p>No session with id <code>${esc(id)}</code>. It may have been deleted. <a href="/">Back to sessions</a></p>`, 'session'));
         if (!m[2]) return send(200, sessionPage(s, stats(s)));

@@ -1,3 +1,5 @@
+<img src="assets/logo.png" alt="" width="96" align="right">
+
 # tracelens
 
 A local viewer and analytics page for Claude Code session logs: browse every session, search them all, read a transcript with its tool calls, and see where your tokens went.
