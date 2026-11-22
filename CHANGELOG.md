@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (round 7, feature: live session pages)
+
+- A session page follows a running session. Any session with activity in the last hour shows "Live" next to the export form and re-checks its log every 2 seconds while the tab is visible. When the log grows, the header (duration, tokens, cost, errors) and the transcript are swapped in place: tool calls and thinking blocks you opened stay open (matched by the log's timestamp, since item numbers shift when subagent steps arrive), new ones arrive collapsed, and if you were at the bottom the page scrolls to the new end. Chosen after using the demo: the one thing you could not do was keep a session open next to a running agent.
+- Session pages send an `ETag` and answer `If-None-Match` with `304 Not Modified` while the session's files keep their size and modification time, so polling costs a directory scan and a stat, not a render. The ETag carries a per-process random salt, so a restarted server (perhaps with another pricing file) never answers an old ETag with 304.
+- The Content-Security-Policy now allows `connect-src 'self'` (the page fetching itself); everything else is unchanged.
+- Tests: a server test for the ETag/304/live marker, and an E2E test that appends to a session file while Chromium has it open and checks the new step appears and an opened tool call stays open (checked: with the open-state restore removed, it fails).
+
+### Notes for the next person (round 7)
+
+- Not done: the session list and insights pages do not update by themselves (reload them). A line still being written shows as "Unreadable line" until the next poll completes it, which can now flash for 2 seconds on a live page. A session idle for over an hour is not live; reload once it becomes active again.
+- Each poll still calls `Store.sessions()`, which rescans every log folder (as every page load does). Fine for thousands of files; a store that stats only the session's own files would be the next step if it is ever slow.
+- Previous round's gaps, re-checked: none of them is a bug that can be fixed here. The Codex parser still has not seen a real rollout (agents here may not open real logs); long-context price tiers, streaming of files over 2 GiB and the initial-load `reveal()` in Chromium are unchanged; private vulnerability reporting is a repo setting left to the owner.
+
 ### Added (round 6, launch pass)
 
 - README: one-line pitch, a hero image (`assets/hero.png`, generated with Codex), a 14-second demo GIF (`docs/demo.gif`) recorded from the running demo, a comparison with ccusage, claude-code-log, Claude Code's own `--resume` and OpenTelemetry export, and LLM tracing platforms, a "Known limits" section, and an updated roadmap.
