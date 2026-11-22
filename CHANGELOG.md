@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (round 4, feature: Codex CLI adapter)
+
+- Codex CLI sessions are read next to Claude Code ones: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (or `$CODEX_HOME/sessions`, or `--codex-dir <path>`). They appear in the same session list (tagged "Codex"), search, insights and exports, and `tracelens export` takes a rollout file path. New module `src/codex.ts`.
+- What a Codex transcript shows: prompts, replies as Markdown, reasoning summaries, tool calls paired with their output by `call_id` and timed, failures from non-zero exit codes (plain-text `Exit code: N` / `Process exited with code N`, or the older JSON-wrapped `metadata.exit_code`, or `success: false`), `error` events in red, `turn_aborted` / compaction notes. The environment, permissions and `AGENTS.md` text Codex injects is collapsed under "Context added by Codex". `event_msg` copies of prompts, replies and commands are skipped; unknown event types are shown raw.
+- Codex token usage: `token_count` totals are cumulative and often repeated, so each one counts only its growth over the previous one (falling back to `last_token_usage` if the total shrinks). Cached input is counted as cache reads.
+- `apply_patch` calls count toward "Files edited most often" (relative patch paths are resolved against the session's folder), and their one-line label lists the patched files. Shell argv (`["bash","-lc","…"]`) and `cmd` arguments get readable labels.
+- `pricing.json`: OpenAI list prices (gpt-5 through gpt-6.2, short-context tier), checked against OpenAI's pricing page on 2026-11-22.
+- Session header and Markdown export name the agent (Claude Code or Codex).
+- `npm run demo` also writes 7 synthetic Codex sessions to `.demo/codex`; `scripts/screenshots.mjs` adds `session-codex.png`.
+
+### Changed (round 4)
+
+- A pricing key no longer matches a model id that continues with `.<digit>`: `gpt-5` prices `gpt-5-codex` but not `gpt-5.2` (an unknown version is now "not priced" instead of silently priced as an older one).
+- The `export -o` guard refuses both log folders; its message now says "a log folder".
+
+### Notes for the next person (round 4)
+
+- Chosen because it was the top roadmap item, part of the original brief, and the one thing a Codex user could not work around. The Codex format was built from published third-party schema notes and synthetic fixtures (`test/fixtures/codex`), never from a real `~/.codex` log. First thing to do with real logs: look for "Unrecognized" rows and tool calls with no result.
+- Tests never read the real Codex folder: CLI tests set `CODEX_HOME` to an empty temp path; the store only reads Codex when given a folder. Anyone running `serve`/`list` by hand without `--codex-dir` reads the real default folder, which is the point for a user but worth knowing on a shared build machine.
+- Not handled: Codex `history.jsonl`, archived sessions (`~/.codex/archived_sessions`), Codex subagents/collaboration tools (shown as ordinary tool calls), the long-context price tier. `web_search_call` items show as a `web_search` tool call with no recorded result. Pricing rows for variants without a published price (`gpt-5.1-codex-mini`, `gpt-5.1-codex-max`) fall back to their base model's price.
+- Codex session URLs use the day folder (`/session/20/<id>`): ids are UUIDs, so they do not collide.
+
 ### Security (round 3, security pass)
 
 - Redaction no longer takes quadratic time on long runs of characters. The email, URL-password, `key=value` and JWT patterns rescanned a run from every position, so 200 KB of crafted tool output took about 5 minutes to export with `--redact`. The web UI's export redacts by default, and the server is single-threaded, so this froze every page. The same 3.2 MB test input now takes milliseconds. Assignments nested in other values (`url: https://x?token=…`) are still found.

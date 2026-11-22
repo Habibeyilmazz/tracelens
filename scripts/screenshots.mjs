@@ -30,6 +30,7 @@ async function shoot(name, path, { width = 1280, height = 860, scheme = 'light',
 const home = await browser.newPage();
 await home.goto(base + '/?sort=cost');
 const href = await home.locator('td.title a').first().getAttribute('href');
+const codexHref = await home.locator('tr:has(.chip.agent) td.title a').first().getAttribute('href').catch(() => undefined);
 await home.close();
 
 await shoot('sessions', '/');
@@ -47,6 +48,14 @@ await shoot('session-reply', href, {
   scrolled: true,
   before: (p) => p.locator('.k-assistant').last().evaluate((el) => el.scrollIntoView({ block: 'end' })),
 });
+if (codexHref) {
+  const openCalls = async (p) => {
+    await p.locator('details.tool:has(.tname:text-is("apply_patch")) > summary').first().click();
+    await p.locator('details.tool.error > summary').first().click().catch(() => {});
+  };
+  await shoot('session-codex', codexHref, { width: 1100, height: 900, before: openCalls });
+  await shoot('qa/session-codex-mobile-dark', codexHref, { width: 390, height: 844, scheme: 'dark', before: openCalls });
+} else problems.push('no Codex session in the list (run the demo with --codex-dir)');
 await shoot('qa/sessions-mobile-dark', '/', { width: 390, height: 844, scheme: 'dark' });
 await shoot('search', '/search?q=config.timeoutMs');
 await shoot('session-dark', href, { scheme: 'dark', before: (p) => p.locator('[data-toggle=open]').click() });

@@ -32,5 +32,6 @@ jobs:
         run: npm test
       - name: Smoke test the CLI against the fixtures
         run: |
-          node dist/src/cli.js list --dir test/fixtures/projects
+          node dist/src/cli.js list --dir test/fixtures/projects --codex-dir test/fixtures/codex
           node dist/src/cli.js export 1111 --dir test/fixtures/projects --redact > /dev/null
+          node dist/src/cli.js export 3333 --dir test/fixtures/projects --codex-dir test/fixtures/codex --redact > /dev/null

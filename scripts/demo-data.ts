@@ -1,5 +1,5 @@
-// Writes a synthetic Claude Code projects folder for demos and screenshots.
-// Usage: node dist/scripts/demo-data.js <out-dir>   (everything in it is made up)
+// Writes a synthetic Claude Code projects folder (and optionally a Codex sessions folder) for demos and screenshots.
+// Usage: node dist/scripts/demo-data.js <out-dir> [<codex-out-dir>]   (everything in them is made up)
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -129,3 +129,71 @@ for (let d = 0; d < 14; d++) {
   }
 }
 console.log(`wrote ${n} synthetic sessions to ${out}`);
+
+// ---------------------------------------------------------------- Codex CLI rollouts (optional second folder)
+
+const codexOut = process.argv[3];
+const CODEX_MODELS = ['gpt-5.1-codex', 'gpt-5.3-codex', 'gpt-5.4'];
+
+function codexSession(cwd: string, prompt: string, start: number) {
+  const id = uuid();
+  const p = PROJECTS[cwd];
+  const model = pick(CODEX_MODELS);
+  const lines: object[] = [];
+  let t = start;
+  const rec = (type: string, payload: object) => lines.push({ timestamp: new Date(t).toISOString(), type, payload });
+  const item = (payload: object) => rec('response_item', payload);
+  let total = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
+  const usage = () => {
+    const input = int(6000, 16000);
+    const last = { input_tokens: input, cached_input_tokens: Math.floor(input * (0.5 + rand() * 0.4)), output_tokens: int(80, 900) };
+    total = { input_tokens: total.input_tokens + last.input_tokens, cached_input_tokens: total.cached_input_tokens + last.cached_input_tokens, output_tokens: total.output_tokens + last.output_tokens };
+    rec('event_msg', { type: 'token_count', info: { total_token_usage: total, last_token_usage: last, model_context_window: 272000 } });
+  };
+  const call = (name: string, args: object | string, output: string, ms: number) => {
+    const call_id = `call_${uuid().slice(0, 12)}`;
+    if (typeof args === 'string') item({ type: 'custom_tool_call', status: 'completed', call_id, name, input: args });
+    else item({ type: 'function_call', name, arguments: JSON.stringify(args), call_id });
+    t += ms;
+    item({ type: typeof args === 'string' ? 'custom_tool_call_output' : 'function_call_output', call_id, output });
+    usage();
+    t += int(2000, 9000);
+  };
+  const shell = (command: string, out: string, code = 0, ms = int(200, 1500)) =>
+    call('shell_command', { command, workdir: cwd }, `Exit code: ${code}\nWall time: ${(ms / 1000).toFixed(1)} seconds\nOutput:\n${out}`, ms);
+
+  rec('session_meta', { id, timestamp: new Date(t).toISOString(), cwd, originator: 'codex_cli_rs', cli_version: '0.63.0', source: 'cli', model_provider: 'openai' });
+  item({ type: 'message', role: 'user', content: [{ type: 'input_text', text: `<environment_context>\n  <cwd>${cwd}</cwd>\n  <shell>zsh</shell>\n</environment_context>` }] });
+  rec('turn_context', { cwd, approval_policy: 'on-request', sandbox_policy: { type: 'workspace-write' }, model, effort: 'medium', summary: 'auto' });
+  item({ type: 'message', role: 'user', content: [{ type: 'input_text', text: prompt }] });
+  rec('event_msg', { type: 'user_message', message: prompt, images: [] });
+  t += int(2000, 5000);
+  item({ type: 'reasoning', summary: [{ type: 'summary_text', text: `**Finding the relevant code**\n\nThe request: ${prompt.toLowerCase()}.` }], content: null, encrypted_content: 'demo' });
+  const f = pick(p.files);
+  shell(`rg -n "timeout" ${p.files.slice(0, 2).join(' ')}`, `${p.files[0]}:12:const timeout = 5000;`);
+  shell(`sed -n '1,40p' ${f}`, "import { config } from './config';\n\nexport function handler(req, res) {\n  // ...\n}");
+  call('apply_patch', `*** Begin Patch\n*** Update File: ${f}\n@@\n-const timeout = 5000;\n+const timeout = config.timeoutMs ?? 5000;\n*** End Patch\n`, `Success. Updated the following files:\nM ${f}\n`, int(50, 300));
+  const fails = rand() < 0.35;
+  shell(p.test, fails ? 'FAIL 1 test\n  expected 200, received 500' : 'Tests: 24 passed', fails ? 1 : 0, int(4000, 30000));
+  if (fails) shell(p.test, 'Tests: 24 passed', 0, int(4000, 30000));
+  item({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: `Done: ${prompt.replace(/\.$/, '').toLowerCase()}.\n\n- \`${f}\` reads \`config.timeoutMs\` and keeps **5000** as the fallback\n- \`${p.test}\` passes` }] });
+  rec('event_msg', { type: 'agent_message', message: 'Done.' });
+  return { id, lines, start };
+}
+
+if (codexOut) {
+  let c = 0;
+  for (let d = 0; d < 14; d += 2) {
+    const cwd = pick(Object.keys(PROJECTS));
+    const start = day0.getTime() + d * 86_400_000 + 9 * 3_600_000 + int(0, 3_000_000);
+    const s = codexSession(cwd, pick(PROJECTS[cwd].prompts), start);
+    const day = new Date(start);
+    const ymd = [String(day.getFullYear()), String(day.getMonth() + 1).padStart(2, '0'), String(day.getDate()).padStart(2, '0')];
+    const dir = join(codexOut, ...ymd);
+    mkdirSync(dir, { recursive: true });
+    const stamp = new Date(start).toISOString().slice(0, 19).replace(/:/g, '-');
+    writeFileSync(join(dir, `rollout-${stamp}-${s.id}.jsonl`), s.lines.map((l) => JSON.stringify(l)).join('\n') + '\n');
+    c++;
+  }
+  console.log(`wrote ${c} synthetic Codex sessions to ${codexOut}`);
+}
