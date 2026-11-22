@@ -209,6 +209,7 @@ export function parseCodex(files: SessionFiles): Session {
         if (!u || !(u.input || u.output)) continue;
         // OpenAI counts cached tokens inside input_tokens, and reasoning tokens inside output_tokens.
         // The long-prompt price tier depends on one request's prompt: a delta can span several requests, last_token_usage cannot.
+        // shortcut: a delta over several requests gets the last one's tier for all of them; the log holds nothing finer.
         usage.push({ ts, model, usage: { input: Math.max(0, u.input - u.cached), output: u.output, cacheWrite: 0, cacheWrite1h: 0, cacheRead: Math.min(u.cached, u.input) }, ...(lastResp && { prompt: lastResp.input }) });
       } else if (p.type === 'exec_command_end' || p.type === 'patch_apply_end') {
         if (typeof p.call_id === 'string' && (p.success === false || (typeof p.exit_code === 'number' && p.exit_code !== 0))) failedIds.add(p.call_id);

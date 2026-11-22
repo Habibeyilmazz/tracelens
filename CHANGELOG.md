@@ -15,7 +15,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added (round 7, long-prompt price tiers)
 
 - Cost estimates now apply long-prompt price tiers, a gap listed since round 4. A `pricing.json` row may have a `longContext` block (`above` plus the five rates); a request whose prompt (input + cache writes + cache reads) is over `above` tokens is priced entirely at those rates. Filled in: `claude-haiku-5-5` above 100,000 tokens (Anthropic's pricing page, checked 2026-11-22; other current Claude models bill the whole 1M window at base rates), and gpt-5.4, gpt-5.5, gpt-5.6-*, gpt-6-*, gpt-6.1-*, gpt-6.2-* above 272,000 tokens (OpenAI's pricing page, checked 2026-11-22; the page says ">272K" without defining K or what counts, so 272,000 input tokens including cached ones is an assumption). Invalid `longContext` blocks are rejected with the field name.
-- Codex: each usage step remembers the prompt size of its last request (`last_token_usage.input_tokens`), and the tier is decided from that, because one step's delta can cover several requests (two 200K requests are not one 400K prompt).
+- Codex: each usage step remembers the prompt size of its last request (`last_token_usage.input_tokens`), and the tier is decided from that, because one step's delta can cover several requests (two 200K requests are not one 400K prompt). Known limit, from a Codex review: such a step gets its last request's tier for all its tokens; the log holds nothing finer.
 
 ### Notes for the next person (round 7)
 
