@@ -151,7 +151,7 @@ table.list td{display:block;border:0;padding:0;text-align:left}
 table.list td.title{order:-1;flex-basis:100%;min-width:0;margin-bottom:.15rem}
 table.list td.when{flex-basis:100%;color:var(--muted);font-size:.85rem}
 table.list td.num::before{content:attr(data-label) " ";color:var(--muted);font-size:.8rem;font-weight:400}}
-@media (max-width:640px){.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
+@media (max-width:640px){.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:3px 0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
 `;
 
 // Opens the collapsed ancestors of a linked item, and wires the expand/collapse buttons.
@@ -298,20 +298,19 @@ export function sessionPage(s: Session, st: SessionStats, etag?: string): string
 <label><input type="checkbox" name="redact" value="1" checked> Redact paths and secrets</label><button>Download</button></form>${live}</div>`;
   // live-head and live-tx are the parts app.js swaps when the log grows; it keeps each <details>
   // open or closed by its subagent and data-ts (the log's timestamp, which stays put when lines are added, unlike item numbers).
-  return page(s.title, `<div id="live-head">${sessionHeader(s, st)}</div>${toolbar}<div id="live-tx">${transcript(s, { clip: 40_000, link: true })}</div>`, 'session');
+  return page(s.title, `<div id="live-head">${sessionHeader(s, st)}</div>${toolbar}<div id="live-tx">${transcript(s, { clip: 40_000 })}</div>`, 'session');
 }
 
 export function exportHtml(s: Session, st: SessionStats): string {
   // The file is opened from disk without our server's headers: its own CSP keeps it from running or loading anything.
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'">
-<title>${esc(s.title)}</title><style>${CSS}</style></head><body><main>${sessionHeader(s, st)}${transcript(s, { clip: 0, link: false })}
+<title>${esc(s.title)}</title><style>${CSS}</style></head><body><main>${sessionHeader(s, st)}${transcript(s, { clip: 0 })}
 <footer class="export">Exported with tracelens on ${fmtDate(Date.now())}. Costs are estimates from list prices.</footer></main></body></html>`;
 }
 
 interface TxOpts {
   clip: number; // max characters per text block, 0 = no limit
-  link: boolean;
 }
 
 function clip(text: string, max: number): string {
@@ -363,14 +362,14 @@ function body(it: Item, ctx: Ctx): string {
     case 'system':
       return `<div class="msg">${clip(it.text, max)}</div>`;
     case 'raw':
-      return `<details class="quiet" data-ts="${it.ts}"><summary>${esc(it.label)}</summary><pre>${clip(it.json, max)}</pre></details>`;
+      return `<details class="quiet" data-ts="${it.ts}"><summary>${esc(it.label)}</summary><pre tabindex="0">${clip(it.json, max)}</pre></details>`;
     case 'tool': {
       const w = it.durationMs === undefined ? 0 : Math.max(2, Math.round(56 * Math.sqrt(it.durationMs / ctx.maxMs)));
       const dur = it.durationMs === undefined ? '' : `<span class="dur"><span class="bar" style="width:${w}px"></span>${fmtDuration(it.durationMs)}</span>`;
       const output =
-        it.output === undefined ? `<div class="lbl">Output</div><p class="muted">No result was recorded.</p>` : `<div class="lbl">Output${it.isError ? ' (error)' : ''}</div><pre class="out">${clip(it.output, max)}</pre>`;
+        it.output === undefined ? `<div class="lbl">Output</div><p class="muted">No result was recorded.</p>` : `<div class="lbl">Output${it.isError ? ' (error)' : ''}</div><pre class="out" tabindex="0">${clip(it.output, max)}</pre>`;
       return `<details class="tool${it.isError ? ' error' : ''}" data-ts="${it.ts}"><summary><span class="tname">${esc(it.name)}</span><span class="targ">${esc(toolLabel(it.input))}</span>${it.isError ? '<span class="flag">error</span>' : ''}${dur}</summary>
-<div class="io"><div class="lbl">Input</div><pre>${clip(pretty(it.input), max)}</pre>${output}${it.subagent ? subagent(it.subagent, ctx) : ''}</div></details>`;
+<div class="io"><div class="lbl">Input</div><pre tabindex="0">${clip(pretty(it.input), max)}</pre>${output}${it.subagent ? subagent(it.subagent, ctx) : ''}</div></details>`;
     }
   }
 }
@@ -406,7 +405,7 @@ function barChart(rows: Row[], value: (r: Row) => number, fmt: (n: number) => st
 
 function usageTable(rows: Row[], keyLabel: string, keyCell: (r: Row) => string): string {
   if (!rows.length) return `<p class="empty">No token usage in this range.</p>`;
-  return `<div class="scroll"><table><thead><tr><th>${keyLabel}</th><th class="num">Sessions</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache write</th><th class="num">Cache read</th><th class="num">Est. cost</th></tr></thead><tbody>
+  return `<div class="scroll" tabindex="0" role="region" aria-label="Usage by ${keyLabel.toLowerCase()}"><table><thead><tr><th>${keyLabel}</th><th class="num">Sessions</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache write</th><th class="num">Cache read</th><th class="num">Est. cost</th></tr></thead><tbody>
 ${rows
   .map(
     (r) =>
@@ -430,7 +429,7 @@ export function insightsPage(ins: Insights, projects: string[], q: InsightsQuery
   const u = ins.usage;
 
   const toolsTable = ins.tools.length
-    ? `<div class="scroll"><table><thead><tr><th>Tool</th><th>Calls</th><th class="num">Errors</th><th class="num">Avg time</th><th class="num">Slowest</th></tr></thead><tbody>
+    ? `<div class="scroll" tabindex="0" role="region" aria-label="Most-used tools"><table><thead><tr><th>Tool</th><th>Calls</th><th class="num">Errors</th><th class="num">Avg time</th><th class="num">Slowest</th></tr></thead><tbody>
 ${ins.tools
   .slice(0, 20)
   .map(
@@ -441,7 +440,7 @@ ${ins.tools
     : `<p class="empty">No tool calls in this range.</p>`;
 
   const slowTable = ins.slowest.length
-    ? `<div class="scroll"><table><thead><tr><th class="num">Time</th><th>Tool</th><th>Session</th></tr></thead><tbody>
+    ? `<div class="scroll" tabindex="0" role="region" aria-label="Slowest tool calls"><table><thead><tr><th class="num">Time</th><th>Tool</th><th>Session</th></tr></thead><tbody>
 ${ins.slowest
   .map(
     ({ session, call }) =>
@@ -451,7 +450,7 @@ ${ins.slowest
     : `<p class="empty">No timed tool calls in this range.</p>`;
 
   const filesTable = ins.files.length
-    ? `<div class="scroll"><table><thead><tr><th>File</th><th class="num">Edits</th><th class="num">Sessions</th></tr></thead><tbody>
+    ? `<div class="scroll" tabindex="0" role="region" aria-label="Files edited most often"><table><thead><tr><th>File</th><th class="num">Edits</th><th class="num">Sessions</th></tr></thead><tbody>
 ${ins.files.map((f) => `<tr><td class="mono" title="${esc(f.path)}">${esc(shortPath(f.path))}</td><td class="num">${f.edits}</td><td class="num">${f.sessions}</td></tr>`).join('')}</tbody></table></div>`
     : `<p class="empty">No file edits in this range.</p>`;
 

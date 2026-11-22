@@ -111,6 +111,8 @@ test('insights page renders charts and tables', async () => {
   assert.equal(r.status, 200);
   for (const s of ['Tokens per day', 'Estimated cost per day', '<svg', 'Most-used tools', 'Slowest tool calls', 'about.md', 'claude-experimental-9'])
     assert.ok(r.body.includes(s), `missing ${s}`);
+  // Tables scroll sideways on phones: each scroll box takes keyboard focus (Safari does not focus scrollers by itself).
+  assert.equal(r.body.match(/<div class="scroll"(?! tabindex="0" role="region" aria-label="[^"]+")/g), null);
   const week = await get('/insights?days=7&project=nope');
   assert.match(week.body, /No token usage in this range/);
 });

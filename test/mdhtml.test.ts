@@ -31,16 +31,16 @@ test('markdown: only http(s) links become anchors, images are never loaded', () 
 });
 
 test('markdown: fenced code is kept verbatim, an unclosed fence runs to the end', () => {
-  assert.equal(mdToHtml('Run:\n```sh\nnpm test -- **x**\n```\nDone.'), '<p>Run:</p><pre><code>npm test -- **x**</code></pre><p>Done.</p>');
-  assert.equal(mdToHtml('~~~\na\n\nb'), '<pre><code>a\n\nb</code></pre>');
-  assert.equal(mdToHtml('````\n```\ninner\n```\n````'), '<pre><code>```\ninner\n```</code></pre>');
+  assert.equal(mdToHtml('Run:\n```sh\nnpm test -- **x**\n```\nDone.'), '<p>Run:</p><pre tabindex="0"><code>npm test -- **x**</code></pre><p>Done.</p>');
+  assert.equal(mdToHtml('~~~\na\n\nb'), '<pre tabindex="0"><code>a\n\nb</code></pre>');
+  assert.equal(mdToHtml('````\n```\ninner\n```\n````'), '<pre tabindex="0"><code>```\ninner\n```</code></pre>');
 });
 
 test('markdown: lists, nesting, ordered start, quotes, rules', () => {
   assert.equal(mdToHtml('- a\n- b\n  - c\n- d'), '<ul><li>a</li><li>b<ul><li>c</li></ul></li><li>d</li></ul>');
   assert.equal(mdToHtml('3. three\n4. four'), '<ol start="3"><li>three</li><li>four</li></ol>');
   assert.equal(mdToHtml('Changes:\n- one\n\nAfter.'), '<p>Changes:</p><ul><li>one</li></ul><p>After.</p>');
-  assert.equal(mdToHtml('1. step\n   ```\n   code\n   ```'), '<ol><li>step<pre><code>code</code></pre></li></ol>');
+  assert.equal(mdToHtml('1. step\n   ```\n   code\n   ```'), '<ol><li>step<pre tabindex="0"><code>code</code></pre></li></ol>');
   assert.equal(mdToHtml('- a\n\n  more\n- b'), '<ul><li><p>a</p><p>more</p></li><li>b</li></ul>');
   assert.equal(mdToHtml('> quoted\n> **text**'), '<blockquote><p>quoted<br><strong>text</strong></p></blockquote>');
   assert.equal(mdToHtml('a\n\n---\n\nb'), '<p>a</p><hr><p>b</p>');
@@ -49,7 +49,7 @@ test('markdown: lists, nesting, ordered start, quotes, rules', () => {
 test('markdown: pipe tables, with escaped pipes and short rows', () => {
   assert.equal(
     mdToHtml('| File | Change |\n|---|:--:|\n| `a\\|b` | x |\n| c |'),
-    '<div class="scroll"><table><thead><tr><th>File</th><th>Change</th></tr></thead><tbody><tr><td><code>a|b</code></td><td>x</td></tr><tr><td>c</td><td></td></tr></tbody></table></div>',
+    '<div class="scroll" tabindex="0"><table><thead><tr><th>File</th><th>Change</th></tr></thead><tbody><tr><td><code>a|b</code></td><td>x</td></tr><tr><td>c</td><td></td></tr></tbody></table></div>',
   );
   assert.equal(mdToHtml('a | b\n---'), '<p>a | b</p><hr>');
 });

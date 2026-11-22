@@ -13,7 +13,7 @@ const TABLE_SEP = /^ *\|? *:?-+:? *(\| *:?-+:? *)*\|? *$/;
 
 export function mdToHtml(text: string, depth = 0): string {
   // Quotes and lists recurse; past a sane depth the rest is shown as plain text, never a stack overflow.
-  if (depth > 12) return `<pre>${esc(text)}</pre>`;
+  if (depth > 12) return `<pre tabindex="0">${esc(text)}</pre>`;
   const lines = text.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').split('\n');
   const out: string[] = [];
   let para: string[] = [];
@@ -30,7 +30,7 @@ export function mdToHtml(text: string, depth = 0): string {
       const close = new RegExp(`^ {0,3}${fence[1][0] === '`' ? '`' : '~'}{${fence[1].length},}\\s*$`);
       const code: string[] = [];
       while (++i < lines.length && !close.test(lines[i])) code.push(lines[i]);
-      out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`);
+      out.push(`<pre tabindex="0"><code>${esc(code.join('\n'))}</code></pre>`);
     } else if (!line.trim()) {
       flush();
     } else if (/^ {0,3}#{1,6}\s/.test(line)) {
@@ -68,7 +68,7 @@ export function mdToHtml(text: string, depth = 0): string {
       for (i += 2; i < lines.length && lines[i].includes('|') && lines[i].trim(); i++) rows.push(cells(lines[i]));
       i--;
       const tr = (cs: string[], tag: string) => `<tr>${head.map((_, k) => `<${tag}>${inline(cs[k] ?? '')}</${tag}>`).join('')}</tr>`;
-      out.push(`<div class="scroll"><table><thead>${tr(head, 'th')}</thead><tbody>${rows.map((r) => tr(r, 'td')).join('')}</tbody></table></div>`);
+      out.push(`<div class="scroll" tabindex="0"><table><thead>${tr(head, 'th')}</thead><tbody>${rows.map((r) => tr(r, 'td')).join('')}</tbody></table></div>`);
     } else {
       para.push(line.trim());
     }
