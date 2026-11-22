@@ -149,6 +149,20 @@ test('a running session updates in place and keeps open tool calls open', async 
     assert.equal(await page.locator('details.tool').first().getAttribute('open'), '', 'the tool call opened before the update is still open');
     assert.equal(await page.locator('details.tool').nth(1).getAttribute('open'), null, 'the new tool call arrives collapsed');
     assert.match((await page.locator('[data-live]').textContent()) ?? '', /updated/);
+
+    // A subagent step with the very same timestamp as an open main-thread call must not take over its open state.
+    const T = new Date().toISOString();
+    const rec = (r: object) => appendFileSync(file, JSON.stringify({ timestamp: T, cwd: '/Users/dev/live', ...r }) + '\n');
+    rec({ type: 'assistant', message: { id: 'm2', content: [{ type: 'tool_use', id: 'task', name: 'Task', input: { prompt: 'Look around' } }, { type: 'tool_use', id: 't3', name: 'Bash', input: { command: 'run step 3' } }] } });
+    rec({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't3', content: 'output of step 3' }] } });
+    const bash3 = page.locator('details.tool', { has: page.locator('summary', { hasText: 'run step 3' }) });
+    await bash3.waitFor({ timeout: 10_000 });
+    await bash3.locator('summary').click();
+    rec({ type: 'user', isSidechain: true, agentId: 'sa1', message: { content: 'Look around' } });
+    rec({ type: 'assistant', isSidechain: true, agentId: 'sa1', message: { id: 'm3', content: [{ type: 'thinking', thinking: 'Subagent is thinking' }] } });
+    await page.locator('[data-sa="sa1"] details').waitFor({ state: 'attached', timeout: 10_000 });
+    assert.equal(await bash3.getAttribute('open'), '', 'the open Bash call stays open when a subagent step with its timestamp arrives');
+    assert.equal(await page.locator('[data-sa="sa1"] details').getAttribute('open'), null);
     await page.close();
     assert.deepEqual(errors, []);
   } finally {

@@ -160,7 +160,7 @@ function reveal(){var id=location.hash.slice(1);var el=id&&document.getElementBy
 addEventListener('hashchange',reveal);reveal();
 document.querySelectorAll('[data-toggle]').forEach(function(b){b.addEventListener('click',function(){var open=b.dataset.toggle==='open';document.querySelectorAll('details.tool').forEach(function(d){d.open=open;});});});
 document.querySelectorAll('select[data-autosubmit]').forEach(function(s){s.addEventListener('change',function(){s.form.submit();});});
-function detailsByKey(){var n={},m={};document.querySelectorAll('#main details').forEach(function(d){var k=(d.dataset.ts||'')+'/';n[k]=(n[k]||0)+1;m[k+n[k]]=d;});return m;}
+function detailsByKey(){var n={},m={};document.querySelectorAll('#main details').forEach(function(d){var sa=d.parentElement.closest('[data-sa]');var k=(sa?sa.dataset.sa:'')+'/'+(d.dataset.ts||'')+'/';n[k]=(n[k]||0)+1;m[k+n[k]]=d;});return m;}
 function swap(html,live){var doc=new DOMParser().parseFromString(html,'text/html');var root=document.documentElement;var atEnd=innerHeight+scrollY>=root.scrollHeight-80;
 var was={},k,old=detailsByKey();for(k in old)was[k]=old[k].open;
 ['live-head','live-tx'].forEach(function(id){var a=document.getElementById(id),b=doc.getElementById(id);if(a&&b)a.replaceWith(document.adoptNode(b));});
@@ -168,7 +168,7 @@ var now=detailsByKey();for(k in now)if(k in was)now[k].open=was[k];
 live.textContent='Live: updated '+new Date().toLocaleTimeString();if(atEnd)scrollTo(0,root.scrollHeight);}
 var live=document.querySelector('[data-live]');
 if(live){var etag=live.dataset.live,busy=false;setInterval(function(){if(busy||document.hidden)return;busy=true;
-fetch(location.pathname,{headers:{'If-None-Match':etag},cache:'no-store'}).then(function(r){if(r.status!==200)return;etag=r.headers.get('ETag')||etag;return r.text().then(function(t){swap(t,live);});}).catch(function(){}).then(function(){busy=false;});},2000);}
+fetch(location.pathname,{headers:{'If-None-Match':etag},cache:'no-store'}).then(function(r){if(r.status!==200)return;return r.text().then(function(t){swap(t,live);etag=r.headers.get('ETag')||etag;});}).catch(function(){}).then(function(){busy=false;});},2000);}
 `;
 
 const LOGO = `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M13 13l5 5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M5.5 9.5h1.6l1-2.5 1.4 4 1-1.5h1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
@@ -297,7 +297,7 @@ export function sessionPage(s: Session, st: SessionStats, etag?: string): string
 <form method="get" action="${href(s)}/export"><label>Export <select name="format"><option value="md">Markdown</option><option value="html">HTML</option></select></label>
 <label><input type="checkbox" name="redact" value="1" checked> Redact paths and secrets</label><button>Download</button></form>${live}</div>`;
   // live-head and live-tx are the parts app.js swaps when the log grows; it keeps each <details>
-  // open or closed by its data-ts (the log's timestamp, which stays put when lines are added, unlike item numbers).
+  // open or closed by its subagent and data-ts (the log's timestamp, which stays put when lines are added, unlike item numbers).
   return page(s.title, `<div id="live-head">${sessionHeader(s, st)}</div>${toolbar}<div id="live-tx">${transcript(s, { clip: 40_000, link: true })}</div>`, 'session');
 }
 
@@ -341,7 +341,7 @@ function renderItems(items: Item[], ctx: Ctx): string {
 }
 
 function subagent(sa: Subagent, ctx: Ctx): string {
-  return `<div class="subagent"><div class="role">Subagent <code>${esc(sa.id)}</code> · ${sa.items.length} ${sa.items.length === 1 ? 'step' : 'steps'}</div>${renderItems(sa.items, ctx)}</div>`;
+  return `<div class="subagent" data-sa="${esc(sa.id)}"><div class="role">Subagent <code>${esc(sa.id)}</code> · ${sa.items.length} ${sa.items.length === 1 ? 'step' : 'steps'}</div>${renderItems(sa.items, ctx)}</div>`;
 }
 
 function row(it: Item, ctx: Ctx): string {
