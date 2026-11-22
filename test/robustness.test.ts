@@ -189,7 +189,9 @@ test('assistant content in an unknown shape (an object, not a list) is shown raw
 test('search finds tool input text as shown, without JSON escapes (Windows paths, quotes)', () => {
   const call = JSON.stringify({ type: 'assistant', timestamp: '2026-03-08T09:31:00Z', message: { id: 'm1', model: 'claude-sonnet-4-5', content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: 'C:\\work\\report.txt', pattern: 'say "hi"' } }] } });
   const s = parse(`${user('hi')}\n${call}\n`);
-  for (const q of ['C:\\work\\report.txt', 'say "hi"']) assert.equal(search([s], q)[0]?.total, 1, q);
+  assert.equal(search([s], 'C:\\work\\report.txt')[0]?.total, 1);
+  // Quote marks are query syntax, but the snippet shows the input's quotes unescaped.
+  assert.ok(search([s], 'say')[0].matches.some((m) => m.where === 'Read input' && (m.before + m.match + m.after).includes('say "hi"')));
 });
 
 test('Codex: a negative exit code and a JSON-text output with success:false are failures', () => {

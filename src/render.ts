@@ -3,7 +3,7 @@
 
 import { agentName, esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
 import type { Insights, Row, SessionStats } from './insights.js';
-import type { Hit } from './search.js';
+import { termSource, terms, type Hit } from './search.js';
 import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
 
 import { mdToHtml } from './mdhtml.js';
@@ -181,14 +181,15 @@ const LOGO = `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"
 
 export type Nav = 'sessions' | 'insights' | 'search' | 'session';
 
-export function page(title: string, body: string, nav: Nav, q = ''): string {
+// project: the search page's scope, kept when the query is edited in the header box.
+export function page(title: string, body: string, nav: Nav, q = '', project?: string): string {
   const cur = (n: Nav) => (n === nav ? ' aria-current="page"' : '');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} · tracelens</title><link rel="icon" href="data:,"><style>${CSS}</style></head><body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="top"><div><a class="brand" href="/">${LOGO}tracelens</a>
 <nav aria-label="Main"><a href="/"${cur('sessions')}>Sessions</a><a href="/insights"${cur('insights')}>Insights</a></nav>
-<form action="/search" method="get" role="search"><input type="search" name="q" value="${esc(q)}" placeholder="Search all sessions" aria-label="Search all sessions"><button>Search</button></form></div></header>
+<form action="/search" method="get" role="search">${project ? `<input type="hidden" name="project" value="${esc(project)}">` : ''}<input type="search" name="q" value="${esc(q)}" placeholder="Search all sessions" aria-label="Search all sessions"><button>Search</button></form></div></header>
 <main id="main">${body}</main><script src="/app.js" defer></script></body></html>`;
 }
 
@@ -203,6 +204,9 @@ const flat = (s: string) => s.replace(/\s+/g, ' ');
 const costText = (st: { cost: number; unpriced: boolean }) => fmtUSD(st.cost) + (st.unpriced ? '*' : '');
 
 // ---------------------------------------------------------------- session list
+
+const projectOptions = (projects: string[], cur?: string) =>
+  projects.map((p) => `<option value="${esc(p)}"${p === cur ? ' selected' : ''}>${esc(p)}</option>`).join('');
 
 export interface ListQuery {
   project?: string;
@@ -226,7 +230,7 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
 <td class="num" data-label="Tools">${st.tools}</td><td class="num${st.errors ? ' bad' : ''}" data-label="Errors">${st.errors}</td></tr>`;
     })
     .join('');
-  const options = projects.map((p) => `<option value="${esc(p)}"${p === q.project ? ' selected' : ''}>${esc(p)}</option>`).join('');
+  const options = projectOptions(projects, q.project);
   const empty = q.project
     ? `<p class="empty">No sessions for this project.</p>`
     : `<div class="empty"><p>No sessions found in <code>${esc(q.dir)}</code> (Claude Code)${q.codexDir ? ` or <code>${esc(q.codexDir)}</code> (Codex CLI)` : ''}.</p><p class="muted">Point tracelens at other folders with <code>tracelens serve --dir &lt;path&gt; --codex-dir &lt;path&gt;</code>, or try the demo data: <code>npm run demo</code>.</p></div>`;
@@ -250,29 +254,44 @@ ${sortTh('tokens', 'Tokens', ' class="num"')}${sortTh('cost', 'Est. cost', ' cla
 
 const MAX_HITS = 100; // sessions listed per search; the totals still count every hit
 
-export function searchPage(q: string, hits: Hit[]): string {
+export function searchPage(q: string, hits: Hit[], projects: string[] = [], project?: string): string {
   const total = hits.reduce((a, h) => a + h.total, 0);
+  // The other terms in a snippet's context are marked too, so "refund decimal" shows both words where they meet.
+  const ts = terms(q).map(termSource).sort((a, b) => b.length - a.length);
+  const re = ts.length ? new RegExp(ts.join('|'), 'giu') : undefined;
+  const mark = (s: string) => {
+    if (!re) return esc(s);
+    let out = '', at = 0;
+    for (const m of s.matchAll(re)) (out += `${esc(s.slice(at, m.index))}<mark>${esc(m[0])}</mark>`), (at = m.index + m[0].length);
+    return out + esc(s.slice(at));
+  };
   const list = hits
     .slice(0, MAX_HITS)
     .map((h) => {
       const link = href(h.session);
-      const more = h.total > h.matches.length ? `<li class="muted">and ${h.total - h.matches.length} more in this session</li>` : '';
+      const more = h.total > h.shown ? `<li class="muted">and ${h.total - h.shown} more in this session</li>` : '';
       return `<li><a href="${link}"><strong>${esc(h.session.title)}</strong></a>
 <div class="sub-line">${esc(shortPath(h.session.project))} · ${fmtDate(h.session.start)} · ${h.total} ${h.total === 1 ? 'match' : 'matches'}</div>
 <ol>${h.matches
         .map(
           (m) =>
-            `<li><a href="${link}#i-${m.n}"><span class="where">${esc(m.where)}</span><span class="snip">${esc(flat(m.before))}<mark>${esc(m.match)}</mark>${esc(flat(m.after))}</span></a></li>`,
+            `<li><a href="${link}#i-${m.n}"><span class="where">${esc(m.where)}</span><span class="snip">${mark(flat(m.before))}<mark>${esc(m.match)}</mark>${mark(flat(m.after))}</span></a></li>`,
         )
         .join('')}${more}</ol></li>`;
     })
     .join('');
-  const body = !q.trim()
-    ? `<h1>Search</h1><p class="muted">Search the text of every prompt, reply, tool input and tool output.</p>`
-    : `<h1>Results for “${esc(q)}”</h1><p class="muted">${total} ${total === 1 ? 'match' : 'matches'} in ${hits.length} ${hits.length === 1 ? 'session' : 'sessions'}</p>
+  const how = `Finds sessions that contain every word, in any order and any message, ignoring case. Put "quotes" around an exact phrase.`;
+  const options = projectOptions(projects, project);
+  const scope =
+    projects.length > 1 || project
+      ? `<form class="filters" method="get" action="/search"><input type="hidden" name="q" value="${esc(q)}"><label>Project <select name="project" data-autosubmit><option value="">All projects</option>${options}</select></label><noscript><button>Apply</button></noscript></form>`
+      : '';
+  const body = !terms(q).length
+    ? `<h1>Search</h1><p class="muted">Search the text of every prompt, reply, tool input and tool output. ${esc(how)}</p>`
+    : `<h1>Results for “${esc(q)}”</h1>${scope}<p class="muted">${total} ${total === 1 ? 'match' : 'matches'} in ${hits.length} ${hits.length === 1 ? 'session' : 'sessions'}${project ? ` in ${esc(shortPath(project))}` : ''}</p>
 ${hits.length > MAX_HITS ? `<p class="muted">Showing the ${MAX_HITS} sessions with the most matches.</p>` : ''}
-${hits.length ? `<ul class="hits">${list}</ul>` : `<p class="empty">No matches. Search is case-insensitive and matches exact text, so try a shorter phrase.</p>`}`;
-  return page(q ? `Search: ${q}` : 'Search', body, 'search', q);
+${hits.length ? `<ul class="hits">${list}</ul>` : `<p class="empty">No session${project ? ' in this project' : ''} contains ${terms(q).length > 1 ? 'all of these words' : 'this text'}. ${esc(how)}</p>`}`;
+  return page(q ? `Search: ${q}` : 'Search', body, 'search', q, project);
 }
 
 // ---------------------------------------------------------------- session + transcript

@@ -70,7 +70,8 @@ export function createHandler(store: Store, pricing: Pricing) {
 
       if (path === '/search') {
         const q = (p.get('q') ?? '').slice(0, 500);
-        return send(200, searchPage(q, search(sessions, q)));
+        const project = p.get('project') || undefined;
+        return send(200, searchPage(q, search(sessions.filter((s) => !project || s.project === project), q), projects, project));
       }
 
       if (path === '/insights') {

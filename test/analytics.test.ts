@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { computeInsights, sessionStats } from '../src/insights.js';
 import { costOf, loadPricing, parsePricing, ratesFor } from '../src/pricing.js';
-import { search } from '../src/search.js';
+import { search, terms } from '../src/search.js';
 import { A, B, fixtureSessions } from './helpers.js';
 
 const pricing = loadPricing();
@@ -114,7 +114,7 @@ test('search is case-insensitive and covers messages, tool inputs, outputs and s
   assert.ok(hits[0].total >= 5);
   assert.ok(hits[0].matches.length <= 5);
   assert.ok(hits[0].matches.some((m) => m.where === 'Grep input'), 'subagent tool input searched');
-  const m = search(sessions, 'friendly and brief')[0];
+  const m = search(sessions, '"friendly and brief"')[0];
   assert.equal(m.session.id, B);
   assert.equal(m.matches[0].match, 'Friendly and brief');
   assert.deepEqual(search(sessions, '   '), []);
@@ -124,4 +124,39 @@ test('search is case-insensitive and covers messages, tool inputs, outputs and s
   assert.equal(search([tr], 'FOO')[0].matches[0].match, 'foo');
   assert.equal(search([tr], 'foo')[0].matches[0].before, 'İstanbul ');
   assert.equal(search([tr], '(a+b)')[0].total, 1);
+});
+
+test('query terms: words split on whitespace, "quoted phrases" stay whole, repeats count once', () => {
+  assert.deepEqual(terms('refund  "two   decimals" REFUND'), ['refund', 'two decimals']);
+  assert.deepEqual(terms('say "hi'), ['say', 'hi'], 'an unclosed quote is ignored');
+  assert.deepEqual(terms('"" "  " '), []);
+});
+
+test('search: a session matches when it holds every word, anywhere and in any order', () => {
+  const { sessions } = fixtureSessions();
+  const at = (n: number, text: string) => ({ kind: 'user' as const, n, ts: 0, text });
+  const mk = (id: string, ...texts: string[]) => ({ ...sessions[0], id, items: texts.map((t, i) => at(i, t)), orphanSubagents: [] });
+  const both = mk('both', 'The refunds endpoint returns 500', 'it breaks with more than two\n decimals');
+  const one = mk('one', 'refunds only');
+  assert.deepEqual(search([both, one], 'DECIMALS refund').map((h) => h.session.id), ['both']);
+  assert.deepEqual(search([both, one], 'refund').map((h) => h.session.id).sort(), ['both', 'one']);
+  // A phrase matches across any run of whitespace, but only in that order.
+  assert.equal(search([both], '"two decimals"')[0]?.total, 1);
+  assert.deepEqual(search([both], '"decimals two"'), []);
+  // "refund" is present even though every occurrence is inside the longer term "refunds".
+  assert.deepEqual(search([both], 'refund refunds').map((h) => h.session.id), ['both']);
+});
+
+test('search snippets show every word at least once and merge words that sit together', () => {
+  const { sessions } = fixtureSessions();
+  const items = [...Array.from({ length: 8 }, (_, n) => ({ kind: 'user' as const, n, ts: 0, text: `alpha number ${n}` })), { kind: 'user' as const, n: 8, ts: 0, text: 'and beta at the end' }];
+  const h = search([{ ...sessions[0], items, orphanSubagents: [] }], 'alpha beta')[0];
+  assert.equal(h.total, 9);
+  assert.equal(h.matches.length, 5);
+  assert.deepEqual(h.matches.map((m) => m.n), [0, 1, 2, 3, 8], 'beta gets a snippet even though alpha fills the first five');
+  // Two words a few characters apart are one snippet (the page marks both), not two copies of the same line.
+  const close = search([{ ...sessions[0], items: [{ kind: 'user' as const, n: 0, ts: 0, text: 'refund with two decimals, and refund again' }], orphanSubagents: [] }], 'refund decimals')[0];
+  assert.equal(close.total, 3);
+  assert.equal(close.matches.length, 1);
+  assert.equal(close.shown, 3);
 });

@@ -103,7 +103,24 @@ test('search highlights matches and escapes the query', async () => {
   assert.match(r.body, new RegExp(`${SA}#i-\\d+`));
   const x = await get('/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E');
   assert.ok(!x.body.includes('<script>alert(1)'));
-  assert.match(x.body, /No matches/);
+  assert.match(x.body, /No session contains this text/);
+});
+
+test('search finds sessions by several words, marks each, and can be scoped to a project', async () => {
+  const r = await get('/search?q=health%20endpoint');
+  assert.match(r.body, /<mark>health<\/mark>/i);
+  assert.match(r.body, /<mark>endpoint<\/mark>/i);
+  assert.match(r.body, /<select name="project" data-autosubmit>/);
+  const hits = (b: string) => b.match(/<li><a href="\/session\/[^"#]+"><strong>/g)?.length ?? 0;
+  const all = await get('/search?q=the');
+  assert.ok(hits(all.body) >= 2);
+  const scoped = await get(`/search?q=the&project=${encodeURIComponent('/Users/dev/acme-api')}`);
+  assert.equal(hits(scoped.body), 1);
+  assert.match(scoped.body, new RegExp(`href="${SA}"`));
+  assert.match(scoped.body, /in dev\/acme-api/);
+  // Editing the query in the header box keeps the scope.
+  assert.match(scoped.body, /role="search"><input type="hidden" name="project" value="\/Users\/dev\/acme-api">/);
+  assert.match((await get(`/search?q=zzzz%20the&project=${encodeURIComponent('/Users/dev/acme-api')}`)).body, /No session in this project contains all of these words/);
 });
 
 test('insights page renders charts and tables', async () => {

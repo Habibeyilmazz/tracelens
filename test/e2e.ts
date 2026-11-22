@@ -92,6 +92,17 @@ test('list → session → tool call → search → insights → export', async 
   });
   assert.ok(reopened, 'app.js reveal() opens every <details> around the hash target');
 
+  // Several words find a session that holds them all; the project select narrows the results and keeps the query.
+  await page.getByRole('searchbox', { name: 'Search all sessions' }).fill('the file');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await page.waitForURL(/\/search\?q=the\+file$/);
+  const sessionsFound = () => page.locator('ul.hits > li').count();
+  assert.ok((await sessionsFound()) >= 2, 'both Claude Code fixture sessions mention "the" and "file"');
+  await page.getByLabel('Project').selectOption('/Users/dev/acme-api');
+  await page.waitForURL(/q=the\+file&project=%2FUsers%2Fdev%2Facme-api/);
+  assert.equal(await sessionsFound(), 1);
+  assert.equal(await page.getByRole('searchbox', { name: 'Search all sessions' }).inputValue(), 'the file');
+
   // Insights: totals, a daily chart, tables.
   await page.getByRole('link', { name: 'Insights' }).click();
   await page.waitForURL(/\/insights$/);

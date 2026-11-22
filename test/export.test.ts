@@ -146,7 +146,7 @@ test('a code fence survives output with a huge number of backtick runs', () => {
 
 test('search results count every session, list the top 100 and say so', () => {
   const { a } = fixtureSessions();
-  const hits = Array.from({ length: 101 }, (_, i) => ({ session: { ...a, id: `s${i}` }, total: 1, matches: [] }));
+  const hits = Array.from({ length: 101 }, (_, i) => ({ session: { ...a, id: `s${i}` }, total: 1, matches: [], shown: 0 }));
   const html = searchPage('x', hits);
   assert.match(html, /101 matches in 101 sessions/);
   assert.match(html, /Showing the 100 sessions with the most matches/);
