@@ -17,6 +17,7 @@ Chosen after using the demo: the insights page is where the numbers are, but not
 ### Notes for the next person (round 15)
 
 - Reported gaps re-checked: none is a bug. `..jsonl` names and ~160-word searches are unchanged documented limits. Safari and Firefox are still untested (only Chromium is installed). The insights page at 1280px and 390px (dark) was looked at after the change: no sideways scroll.
+- The Codex second-opinion review hit its usage limit again ("try again at 9:32 AM"), so the change was reviewed by hand: the `table` value is checked against a fixed list before it reaches the file name, `days` is an integer, and every text cell goes through the quoting and formula guard. Leading spaces before `=` are not guarded (spreadsheets read ` =1+1` as text). The security-review skill was not run.
 - Not done on purpose: no CSV for "Slowest tool calls" (it is a top-10 list of links into transcripts, not data), and no CLI command for the same tables (`ccusage` already covers terminal and JSON reports well). Either is a few lines on top of `insightsCsv` in `src/insights.ts` if someone asks.
 
 ### Changed (round 14, launch pass)
