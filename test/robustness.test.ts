@@ -1,7 +1,7 @@
 // Edge cases found by trying to break tracelens with odd input (round 5). Each one crashed, hung or
 // showed wrong output before its fix.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -157,5 +157,24 @@ test('a session file over 512 MB (V8 string limit) is read, not skipped', { skip
     const [s] = new Store(dir).sessions();
     assert.equal(s?.title, 'huge session');
     assert.equal(s.items.filter((i) => i.kind === 'raw').length, 600);
+  });
+});
+
+// A sparse file: 2.2 GB long, almost no disk used. Node will not read a file over 2 GiB in one go.
+test('a session file over 2 GiB is skipped with a warning; the other sessions still load', () => {
+  withTemp((dir) => {
+    mkdirSync(join(dir, 'p'));
+    writeFileSync(join(dir, 'p', 'ok.jsonl'), `${user('small session')}\n`);
+    writeFileSync(join(dir, 'p', 'huge.jsonl'), '');
+    truncateSync(join(dir, 'p', 'huge.jsonl'), 2200 * 1024 * 1024);
+    const warn = console.warn;
+    const warnings: string[] = [];
+    console.warn = (msg: string) => warnings.push(msg);
+    try {
+      assert.deepEqual(new Store(dir).sessions().map((s) => s.title), ['small session']);
+    } finally {
+      console.warn = warn;
+    }
+    assert.match(warnings.join('\n'), /skipped .*huge\.jsonl/);
   });
 });
