@@ -41,6 +41,12 @@ const SECRETS: [RegExp, Replacement][] = [
   [/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, R],
   [/\bAIza[0-9A-Za-z_-]{35}\b/g, R],
   [/\bnpm_[A-Za-z0-9]{36}\b/g, R],
+  [/\b[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/g, R], // Stripe
+  [/\bglpat-[A-Za-z0-9_-]{20,}/g, R], // GitLab
+  [/\bhf_[A-Za-z0-9]{30,}/g, R], // Hugging Face
+  [/\bSG\.[\w-]{16,}\.[\w-]{16,}/g, R], // SendGrid
+  // Slack and Discord webhook URLs carry their secret in the path.
+  [/\bhttps:\/\/(?:hooks\.slack\.com\/services|(?:discord|discordapp)\.com\/api\/webhooks)\/[\w/-]+/g, R],
   // A JWT: three dotted segments whose header starts with eyJ at the start of the run or after a '-' (where \beyJ
   // matched). Each dotted run is matched once and the header looked up inside it.
   [/(?<![\w-])[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, (m) => {

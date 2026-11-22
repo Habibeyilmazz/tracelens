@@ -6,7 +6,7 @@ tracelens reads agent logs that can hold source code, file paths and secrets, so
 
 - It only reads log files; it never writes to them. `export -o` refuses to write into a log folder or to any `.jsonl` file.
 - The web UI listens on 127.0.0.1 only, accepts only GET and HEAD, answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]` on its own port, refuses cross-site subresource requests (Fetch Metadata), and sends a strict Content-Security-Policy.
-- It makes no network requests of its own and loads nothing from the internet.
+- It makes no network requests of its own and loads nothing from the internet. Exports do not either: an HTML export carries a Content-Security-Policy, and a Markdown export keeps HTML and images from the log as text, so viewing it on GitHub or in an editor preview loads nothing.
 - `--redact` is pattern matching. It catches common secret shapes, not every secret: read an export before you share it.
 
 Not promised: there is no login, so any program running on the same machine can read the web UI while `tracelens serve` runs.

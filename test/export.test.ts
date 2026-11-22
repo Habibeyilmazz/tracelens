@@ -26,6 +26,23 @@ test('secrets are redacted', () => {
   assert.equal(redactSecrets(pk), '[REDACTED PRIVATE KEY]');
 });
 
+test('more provider key shapes are redacted: Stripe, GitLab, Hugging Face, SendGrid, Slack and Discord webhooks', () => {
+  // Built at runtime so the repository never contains strings that look like live credentials.
+  const keys = [
+    'sk_' + 'live_' + 'a1'.repeat(12),
+    'rk_' + 'test_' + 'b2'.repeat(12),
+    'glpat' + '-' + 'c3'.repeat(10),
+    'hf_' + 'd4'.repeat(17),
+    'SG' + '.' + 'e5'.repeat(11) + '.' + 'f6'.repeat(21),
+    'https://hooks.slack.com/' + 'services/T0' + 'G'.repeat(8) + '/B0' + 'H'.repeat(8) + '/' + 'k'.repeat(24),
+    'https://discord.com/api/' + 'webhooks/' + '1'.repeat(18) + '/' + 'w'.repeat(40),
+  ];
+  const out = redactSecrets(keys.map((k) => `key ${k} end`).join('\n'));
+  for (const k of keys) assert.ok(!out.includes(k), `leaked ${k}`);
+  assert.equal(out.split('\n').filter((l) => l === 'key [REDACTED] end').length, keys.length, out);
+  assert.equal(redactSecrets('sk_live_short and SG.x.y'), 'sk_live_short and SG.x.y', 'too short to be keys');
+});
+
 test('quoted secrets are redacted whole, and secret-named keys in tool inputs too', () => {
   assert.equal(redactSecrets('password="correct horse battery"'), 'password="[REDACTED]"');
   assert.equal(redactSecrets(`{"api_key": "abc \\" def123"}`), '{"api_key": "[REDACTED]"}');
@@ -37,7 +54,7 @@ test('quoted secrets are redacted whole, and secret-named keys in tool inputs to
 
 test('redaction stays linear on long adversarial runs (no regex backtracking blow-up)', () => {
   // Each of these took seconds at 40 KB and minutes at 1 MB with the old patterns; tool output is untrusted.
-  const units = ['a', 'a.', 'a-', 'eyJa-', 'ghp_', 'AKIA', 'token', 'token-', 'a@', 'a://a:', '/Users/', 'C:\\Users\\', 'token="', "token='", 'token=\\', 'x=', 'aaaaaaaa.', '-eyJaaaaaaaa', '://a:'];
+  const units = ['sk_live_', 'hf_', 'SG.', 'SG.aaaaaaaaaaaaaaaa', 'glpat-', 'https://hooks.slack.com/services/', 'a', 'a.', 'a-', 'eyJa-', 'ghp_', 'AKIA', 'token', 'token-', 'a@', 'a://a:', '/Users/', 'C:\\Users\\', 'token="', "token='", 'token=\\', 'x=', 'aaaaaaaa.', '-eyJaaaaaaaa', '://a:'];
   const t = performance.now();
   for (const u of units) redact(u.repeat(Math.ceil(200_000 / u.length)), '/p');
   assert.ok(performance.now() - t < 3000, `took ${Math.round(performance.now() - t)}ms`);
