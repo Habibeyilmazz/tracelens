@@ -108,7 +108,8 @@ export function computeInsights(all: Session[], pricing: Pricing, opts: InsightO
       if (c === undefined && totalTokens(ev.usage) > 0) unpriced.add(ev.model);
       usage = addUsage(usage, ev.usage);
       cost += c ?? 0;
-      bump(rows.day, dayKey(ev.ts || s.start), s.id, ev.usage, c ?? 0);
+      // Undated usage still counts in the totals, but must not create a 1970 day (and a 20,000-day chart).
+      if (ev.ts || s.start) bump(rows.day, dayKey(ev.ts || s.start), s.id, ev.usage, c ?? 0);
       bump(rows.project, s.project, s.id, ev.usage, c ?? 0);
       bump(rows.model, ev.model, s.id, ev.usage, c ?? 0);
     }

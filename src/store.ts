@@ -25,7 +25,10 @@ export class Store {
       }
     }
     this.cache = next;
-    return [...next.values()].map((v) => v.session).sort((a, b) => b.start - a.start);
+    return [...next.values()]
+      .map((v) => v.session)
+      .filter((s) => s.items.length || s.orphanSubagents.length || s.usage.length) // drops e.g. files holding only summary lines
+      .sort((a, b) => b.start - a.start);
   }
 }
 

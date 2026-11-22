@@ -85,13 +85,36 @@ test('unknown and broken records become raw items instead of crashing', () => {
     'Tool result without a matching call',
     'Unreadable line 20',
     'Unrecognized assistant content: mystery_block',
-    'Unrecognized event: file-history-snapshot',
     'Unrecognized event: queue-operation',
   ]);
   const sys = a.items.find((i) => i.kind === 'system');
   assert.ok(sys && sys.kind === 'system' && sys.error);
   const meta = b.items.find((i) => i.kind === 'system');
   assert.ok(meta && meta.kind === 'system' && !meta.error && meta.text.startsWith('Caveat'));
+});
+
+test('Claude Code bookkeeping: summary-only files are hidden, <synthetic> messages carry no usage, compact summaries are not user turns', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    mkdirSync(join(dir, 'p'));
+    const ts = '2026-01-01T00:00:00Z';
+    writeFileSync(join(dir, 'p', 'only-summary.jsonl'), JSON.stringify({ type: 'summary', summary: 'Old work', leafUuid: 'x' }) + '\n');
+    const lines = [
+      { type: 'user', timestamp: ts, message: { role: 'user', content: 'real prompt' } },
+      { type: 'file-history-snapshot', messageId: 'm', snapshot: { trackedFileBackups: {} }, isSnapshotUpdate: false },
+      { type: 'user', timestamp: ts, isCompactSummary: true, message: { role: 'user', content: 'This session is being continued from a previous conversation.' } },
+      { type: 'assistant', timestamp: ts, message: { id: 'syn', model: '<synthetic>', content: [{ type: 'text', text: 'No response requested.' }], usage: { input_tokens: 0, output_tokens: 0 } } },
+    ];
+    writeFileSync(join(dir, 'p', 's.jsonl'), lines.map((l) => JSON.stringify(l)).join('\n') + '\n');
+    const sessions = new Store(dir).sessions();
+    assert.deepEqual(sessions.map((s) => s.id), ['s']);
+    const [s] = sessions;
+    assert.deepEqual(s.usage, []);
+    assert.deepEqual(s.models, []);
+    assert.deepEqual(s.items.map((i) => i.kind), ['user', 'system', 'assistant']);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 });
 
 test('garbage input never throws', () => {

@@ -51,8 +51,9 @@ test('requests for other host names and non-GET methods are refused', async () =
 test('session view shows tools, errors, subagents and raw events', async () => {
   const r = await get(`/session/${A}`);
   assert.equal(r.status, 200);
-  for (const s of ['class="tname">Read<', 'class="tname">Bash<', 'class="flag">error<', 'class="subagent"', 'Unrecognized event: file-history-snapshot', 'Thinking', 'id="i-0"'])
+  for (const s of ['class="tname">Read<', 'class="tname">Bash<', 'class="flag">error<', 'class="subagent"', 'Unreadable line 20', 'Thinking', 'id="i-0"'])
     assert.ok(r.body.includes(s), `missing ${s}`);
+  assert.ok(!r.body.includes('file-history-snapshot'), 'checkpoint bookkeeping is not shown');
   assert.equal((await get('/session/does-not-exist')).status, 404);
   assert.equal((await get('/session/%E0%A4%A')).status, 400);
 });

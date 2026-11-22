@@ -79,6 +79,11 @@ test('insights filters by project and by days, and fills empty days', () => {
   const ins = computeInsights([a, gap], pricing);
   assert.deepEqual(ins.byDay.map((d) => d.key), ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23']);
   assert.equal(ins.byDay[1].cost, 0);
+  // usage with no timestamp anywhere counts in totals but gets no day (not 1970-01-01)
+  const undated = { ...a, id: 'undated', start: 0, end: 0, usage: a.usage.map((e) => ({ ...e, ts: 0 })) };
+  const ins2 = computeInsights([a, undated], pricing);
+  assert.deepEqual(ins2.byDay.map((d) => d.key), ['2026-11-20']);
+  assert.equal(ins2.byDay[0].usage.input * 2, ins2.usage.input);
 });
 
 test('search is case-insensitive and covers messages, tool inputs, outputs and subagents', () => {

@@ -165,7 +165,8 @@ function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
       const blocks = typeof content === 'string' ? [{ type: 'text', text: content }] : Array.isArray(content) ? content : [content];
       for (const b of blocks) {
         if (b?.type === 'text' && typeof b.text === 'string') {
-          if (rec.isMeta) push({ kind: 'system', n: ctx.n++, ts, text: b.text, error: false });
+          // Meta messages and post-compaction summaries are written by Claude Code, not typed by the user.
+          if (rec.isMeta || rec.isCompactSummary) push({ kind: 'system', n: ctx.n++, ts, text: b.text, error: false });
           else push({ kind: 'user', n: ctx.n++, ts, text: b.text });
         } else if (b?.type === 'tool_result') {
           const call = pending.get(b.tool_use_id);
@@ -183,7 +184,8 @@ function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
       const msg = rec.message;
       const model = typeof msg.model === 'string' ? msg.model : 'unknown';
       if (model !== '<synthetic>') ctx.models.add(model);
-      if (msg.usage && typeof msg.usage === 'object') {
+      // '<synthetic>' messages are made up locally by Claude Code (API errors, "No response requested"): no API usage.
+      if (msg.usage && typeof msg.usage === 'object' && model !== '<synthetic>') {
         // Claude Code writes one line per content block, repeating the message's usage: count it once.
         const key = String(msg.id ?? rec.requestId ?? rec.uuid ?? `${source}:${lineNo}`);
         ctx.usage.set(key, { ts, model, usage: toUsage(msg.usage) });
@@ -216,6 +218,8 @@ function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
       push({ kind: 'system', n: ctx.n++, ts, text, error: rec.level === 'error' });
     } else if (rec.type === 'summary') {
       if (!ctx.summary && typeof rec.summary === 'string') ctx.summary = rec.summary;
+    } else if (rec.type === 'file-history-snapshot') {
+      // Checkpoint bookkeeping (file backups), written before each prompt; nothing to read in a transcript.
     } else {
       raw(`Unrecognized event: ${String(rec.type)}`, JSON.stringify(rec, null, 2));
     }
