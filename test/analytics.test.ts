@@ -60,6 +60,15 @@ test('insights aggregate by day, project, model, tool and edited file', () => {
   assert.deepEqual(ins.files.map((f) => f.path).sort(), ['/Users/dev/acme-api/src/server.ts', '/Users/dev/notes-site/about.md']);
 });
 
+test('cache-only usage of an unpriced model is flagged; edits without a result are not counted', () => {
+  const { a } = fixtureSessions();
+  const s = { ...a, usage: [{ ts: a.start, model: 'mystery', usage: { input: 0, output: 0, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 100 } }] };
+  assert.equal(sessionStats(s, pricing).unpriced, true);
+  assert.deepEqual(computeInsights([s], pricing).unpricedModels, ['mystery']);
+  const pending = { ...a, usage: [], orphanSubagents: [], items: [{ kind: 'tool' as const, n: 0, ts: a.start, id: 'w', name: 'Write', input: { file_path: '/x' }, isError: false }] };
+  assert.deepEqual(computeInsights([pending], pricing).files, []);
+});
+
 test('insights filters by project and by days, and fills empty days', () => {
   const { sessions, a } = fixtureSessions();
   const onlyA = computeInsights(sessions, pricing, { project: '/Users/dev/acme-api' });

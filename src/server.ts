@@ -95,10 +95,10 @@ export function createHandler(store: Store, pricing: Pricing) {
   };
 }
 
-export function listen(store: Store, pricing: Pricing, port: number, host = '127.0.0.1'): Promise<Server> {
+export function listen(store: Store, pricing: Pricing, port: number): Promise<Server> {
   const server = createServer(createHandler(store, pricing));
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, host, () => resolve(server));
+    server.listen(port, '127.0.0.1', () => resolve(server));
   });
 }

@@ -26,6 +26,15 @@ test('secrets are redacted', () => {
   assert.equal(redactSecrets(pk), '[REDACTED PRIVATE KEY]');
 });
 
+test('quoted secrets are redacted whole, and secret-named keys in tool inputs too', () => {
+  assert.equal(redactSecrets('password="correct horse battery"'), 'password="[REDACTED]"');
+  assert.equal(redactSecrets(`{"api_key": "abc \\" def123"}`), '{"api_key": "[REDACTED]"}');
+  const { a } = fixtureSessions();
+  const withInput: Session = { ...a, items: [{ kind: 'tool', n: 0, ts: a.start, id: 't', name: 'Bash', input: { password: 'hunter2hunter2', api_key: 'abcdef123456', count: 'ok' }, isError: false }] };
+  const r = redactSession(withInput);
+  assert.deepEqual((r.items[0] as { input: unknown }).input, { password: '[REDACTED]', api_key: '[REDACTED]', count: 'ok' });
+});
+
 test('ordinary numbers and words survive secret redaction', () => {
   const text = '"input_tokens": 123456, max_tokens: 4096, token count is fine';
   assert.equal(redactSecrets(text), text);

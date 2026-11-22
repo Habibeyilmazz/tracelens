@@ -1,5 +1,5 @@
 import { costOf, type Pricing } from './pricing.js';
-import { addUsage, emptyUsage, sessionItems, type Session, type ToolCall, type Usage } from './types.js';
+import { addUsage, emptyUsage, sessionItems, totalTokens, type Session, type ToolCall, type Usage } from './types.js';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** Calendar day in the machine's local time zone. */
@@ -11,7 +11,7 @@ export const dayKey = (ts: number) => {
 export const EDIT_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit']);
 
 export function editedPath(call: ToolCall): string | undefined {
-  if (!EDIT_TOOLS.has(call.name) || call.isError) return undefined;
+  if (!EDIT_TOOLS.has(call.name) || call.isError || call.output === undefined) return undefined;
   const input = call.input as any;
   const p = input?.file_path ?? input?.notebook_path;
   return typeof p === 'string' ? p : undefined;
@@ -32,7 +32,7 @@ export function sessionStats(s: Session, pricing: Pricing): SessionStats {
   for (const ev of s.usage) {
     usage = addUsage(usage, ev.usage);
     const c = costOf(pricing, ev.model, ev.usage);
-    if (c === undefined) unpriced ||= ev.usage.input + ev.usage.output > 0;
+    if (c === undefined) unpriced ||= totalTokens(ev.usage) > 0;
     else cost += c;
   }
   let tools = 0;
@@ -105,7 +105,7 @@ export function computeInsights(all: Session[], pricing: Pricing, opts: InsightO
     for (const ev of s.usage) {
       if (ev.ts < cutoff) continue;
       const c = costOf(pricing, ev.model, ev.usage);
-      if (c === undefined && ev.usage.input + ev.usage.output > 0) unpriced.add(ev.model);
+      if (c === undefined && totalTokens(ev.usage) > 0) unpriced.add(ev.model);
       usage = addUsage(usage, ev.usage);
       cost += c ?? 0;
       bump(rows.day, dayKey(ev.ts || s.start), s.id, ev.usage, c ?? 0);

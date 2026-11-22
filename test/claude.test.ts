@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { discover, parseSession, toUsage } from '../src/claude.js';
+import { discover, filesForPath, parseSession, toUsage } from '../src/claude.js';
 import { findSession, Store } from '../src/store.js';
 import { sessionToolCalls, type ToolCall } from '../src/types.js';
 import { A, B, FIXTURES, fixtureSessions } from './helpers.js';
@@ -15,6 +15,25 @@ test('discover finds sessions, nested subagent files and loose agent files', () 
   assert.equal(b.subagents.length, 2);
   assert.ok(b.subagents.some((p) => p.endsWith('subagents/agent-a1b2c3.jsonl')));
   assert.ok(b.subagents.some((p) => p.endsWith('agent-zz9.jsonl')));
+});
+
+test('opening a session by path also finds its loose agent-*.jsonl subagents', () => {
+  const files = filesForPath(join(FIXTURES, '-Users-dev-notes-site', `${B}.jsonl`));
+  assert.equal(files.subagents.length, 2);
+});
+
+test('usage without message ids is not merged across files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    mkdirSync(join(dir, 'p', 's', 'subagents'), { recursive: true });
+    const rec = (n: number) => JSON.stringify({ type: 'assistant', message: { model: 'm', content: [], usage: { input_tokens: n } } }) + '\n';
+    writeFileSync(join(dir, 'p', 's.jsonl'), rec(10));
+    writeFileSync(join(dir, 'p', 's', 'subagents', 'agent-x.jsonl'), rec(20));
+    const [s] = new Store(dir).sessions();
+    assert.equal(s.usage.reduce((n, e) => n + e.usage.input, 0), 30);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 });
 
 test('session metadata: title from summary, project from cwd, time span, models', () => {

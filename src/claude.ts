@@ -56,6 +56,9 @@ export function filesForPath(path: string): SessionFiles {
   const subagents = existsSync(sub)
     ? safeReaddir(sub).filter((f) => f.isFile() && isJsonl(f.name)).map((f) => join(sub, f.name))
     : [];
+  for (const f of safeReaddir(dirname(path)))
+    if (f.isFile() && f.name.startsWith('agent-') && isJsonl(f.name) && firstRecord(join(dirname(path), f.name))?.sessionId === id)
+      subagents.push(join(dirname(path), f.name));
   return { id, main: path, subagents };
 }
 
@@ -138,7 +141,7 @@ interface Ctx {
 }
 
 /** Turn a run of records (main thread or one subagent) into display items. */
-function buildItems(lines: Line[], ctx: Ctx): Item[] {
+function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
   const items: Item[] = [];
   const pending = new Map<string, ToolCall>();
   let ts = 0;
@@ -182,7 +185,7 @@ function buildItems(lines: Line[], ctx: Ctx): Item[] {
       if (model !== '<synthetic>') ctx.models.add(model);
       if (msg.usage && typeof msg.usage === 'object') {
         // Claude Code writes one line per content block, repeating the message's usage: count it once.
-        const key = String(msg.id ?? rec.requestId ?? rec.uuid ?? `line-${lineNo}`);
+        const key = String(msg.id ?? rec.requestId ?? rec.uuid ?? `${source}:${lineNo}`);
         ctx.usage.set(key, { ts, model, usage: toUsage(msg.usage) });
       }
       const error = rec.isApiErrorMessage === true;
@@ -247,15 +250,15 @@ export function parseSession(files: SessionFiles): Session {
   const ctx: Ctx = { n: 0, usage: new Map(), models: new Set(), firstTs: 0, lastTs: 0 };
   const lines = readLines(files.main);
   const main = lines.filter((l) => !l.rec?.isSidechain);
-  const items = buildItems(main, ctx);
+  const items = buildItems(main, ctx, files.main);
 
   const subagents: Subagent[] = [];
   const sideGroups = groupSidechains(lines.filter((l) => l.rec?.isSidechain));
-  sideGroups.forEach((g, i) => subagents.push({ id: String(g[0].rec.agentId ?? `inline-${i + 1}`), items: buildItems(g, ctx) }));
+  sideGroups.forEach((g, i) => subagents.push({ id: String(g[0].rec.agentId ?? `inline-${i + 1}`), items: buildItems(g, ctx, files.main) }));
   for (const f of files.subagents) {
     const sl = readLines(f);
     const agentId = sl.find((l) => typeof l.rec?.agentId === 'string')?.rec.agentId;
-    subagents.push({ id: String(agentId ?? basename(f, '.jsonl')), items: buildItems(sl, ctx) });
+    subagents.push({ id: String(agentId ?? basename(f, '.jsonl')), items: buildItems(sl, ctx, f) });
   }
 
   // Attach each subagent to the Task/Agent tool call whose prompt started it.
