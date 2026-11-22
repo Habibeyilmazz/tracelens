@@ -12,6 +12,8 @@ const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
   'Cache-Control': 'no-store',
 };
 
@@ -33,6 +35,11 @@ export function createHandler(store: Store, pricing: Pricing) {
       const port = req.socket.localPort;
       if (!['127.0.0.1', 'localhost', '[::1]'].some((h) => req.headers.host === `${h}:${port}`)) return send(403, 'Forbidden host', 'text/plain');
       if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, 'Method not allowed', 'text/plain', { Allow: 'GET, HEAD' });
+      // Fetch Metadata: other sites (other ports on 127.0.0.1 count as same-site) may link here, but may not load
+      // pages as images, scripts, frames or fetches, which would let them time searches over the transcripts.
+      const site = req.headers['sec-fetch-site'];
+      if (site && site !== 'same-origin' && site !== 'none' && !(req.headers['sec-fetch-mode'] === 'navigate' && req.headers['sec-fetch-dest'] === 'document'))
+        return send(403, 'Cross-site request refused', 'text/plain');
 
       const url = new URL(req.url ?? '/', 'http://localhost');
       const p = url.searchParams;

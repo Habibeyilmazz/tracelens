@@ -98,6 +98,7 @@ test('html export is self-contained and escapes transcript content', () => {
   assert.ok(!html.includes('<img src=x'), 'message escaped');
   assert.ok(!/<script|<link|src="http/i.test(html), 'no scripts or external resources');
   assert.match(html, /<style>/);
+  assert.match(html, /<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';/, 'the file carries its own CSP');
   assert.equal(esc(`<a href="x">'&'</a>`), '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;');
 });
 

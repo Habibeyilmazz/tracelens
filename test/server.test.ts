@@ -17,10 +17,10 @@ before(async () => {
 });
 after(() => server.close());
 
-function get(path: string, opts: { method?: string; host?: string; port?: number } = {}): Promise<{ status: number; headers: Record<string, any>; body: string }> {
+function get(path: string, opts: { method?: string; host?: string; port?: number; headers?: Record<string, string> } = {}): Promise<{ status: number; headers: Record<string, any>; body: string }> {
   return new Promise((resolve, reject) => {
     const port = opts.port ?? PORT;
-    const req = request({ host: '127.0.0.1', port, path, method: opts.method ?? 'GET', headers: { host: opts.host ?? `127.0.0.1:${port}` } }, (res) => {
+    const req = request({ host: '127.0.0.1', port, path, method: opts.method ?? 'GET', headers: { host: opts.host ?? `127.0.0.1:${port}`, ...opts.headers } }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (c) => (body += c));
@@ -51,6 +51,23 @@ test('requests for other host names and non-GET methods are refused', async () =
   assert.equal((await get('/', { host: `attacker.test:${PORT}` })).status, 403);
   assert.equal((await get('/', { host: `localhost:${PORT}` })).status, 200);
   assert.equal((await get('/', { method: 'POST' })).status, 405);
+});
+
+test('other sites may link here but not load pages as subresources', async () => {
+  const fetchMeta = (site: string, mode: string, dest: string) => ({ 'sec-fetch-site': site, 'sec-fetch-mode': mode, 'sec-fetch-dest': dest });
+  // An attacker page timing <img src="http://127.0.0.1:4180/search?q=…"> or fetch(…, {mode: 'no-cors'}).
+  assert.equal((await get('/search?q=hunter2', { headers: fetchMeta('cross-site', 'no-cors', 'image') })).status, 403);
+  assert.equal((await get('/search?q=hunter2', { headers: fetchMeta('cross-site', 'cors', 'empty') })).status, 403);
+  // Another local server on 127.0.0.1 is "same-site"; an iframe is refused too.
+  assert.equal((await get('/', { headers: fetchMeta('same-site', 'no-cors', 'script') })).status, 403);
+  assert.equal((await get('/', { headers: fetchMeta('cross-site', 'navigate', 'iframe') })).status, 403);
+  // Clicking a link, a bookmark, the page's own requests and clients without fetch metadata (curl) are fine.
+  assert.equal((await get(SA, { headers: fetchMeta('cross-site', 'navigate', 'document') })).status, 200);
+  assert.equal((await get('/', { headers: fetchMeta('none', 'navigate', 'document') })).status, 200);
+  assert.equal((await get('/app.js', { headers: fetchMeta('same-origin', 'no-cors', 'script') })).status, 200);
+  const r = await get('/');
+  assert.equal(r.headers['cross-origin-opener-policy'], 'same-origin');
+  assert.equal(r.headers['cross-origin-resource-policy'], 'same-origin');
 });
 
 test('session view shows tools, errors, subagents and raw events', async () => {

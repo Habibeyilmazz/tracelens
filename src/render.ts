@@ -284,7 +284,9 @@ export function sessionPage(s: Session, st: SessionStats): string {
 }
 
 export function exportHtml(s: Session, st: SessionStats): string {
+  // The file is opened from disk without our server's headers: its own CSP keeps it from running or loading anything.
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'">
 <title>${esc(s.title)}</title><style>${CSS}</style></head><body><main>${sessionHeader(s, st)}${transcript(s, { clip: 0, link: false })}
 <footer class="export">Exported with tracelens on ${fmtDate(Date.now())}. Costs are estimates from list prices.</footer></main></body></html>`;
 }
