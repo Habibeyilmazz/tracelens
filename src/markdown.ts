@@ -1,4 +1,4 @@
-import { agentName, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, toolLabel } from './format.js';
+import { agentName, fmtDate, fmtDuration, fmtSpan, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, toolLabel } from './format.js';
 import type { SessionStats } from './insights.js';
 import type { Item, Session, Subagent } from './types.js';
 
@@ -109,7 +109,7 @@ export function exportMarkdown(s: Session, st: SessionStats): string {
     `- Project: ${code(s.project)}`,
     `- Agent: ${agentName(s.source)}`,
     `- Session: ${code(s.id)}`,
-    `- Started: ${fmtDate(s.start)} (duration ${fmtDuration(s.end - s.start)})`,
+    `- Started: ${fmtDate(s.start)} (duration ${fmtSpan(s)})`,
     `- Models: ${inertLine(oneLine(s.models.map(shortModel).join(', '), 1000)) || 'none recorded'}`,
     `- Tokens: ${fmtTokens(u.input)} in, ${fmtTokens(u.output)} out, ${fmtTokens(u.cacheWrite)} cache write, ${fmtTokens(u.cacheRead)} cache read`,
     `- Estimated cost: ${fmtUSD(st.cost)}${st.unpriced ? ' (some models have no price)' : ''}, from list prices`,

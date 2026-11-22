@@ -82,3 +82,6 @@ export function toolLabel(input: unknown): string {
 }
 
 export const pretty = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2) ?? '');
+
+/** A session's length; unknown (—) when the log holds no timestamp at all. */
+export const fmtSpan = (s: { start: number; end: number }) => fmtDuration(s.start ? s.end - s.start : undefined);

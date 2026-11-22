@@ -224,3 +224,11 @@ test('long messages clipped on the session page never end in half an emoji', () 
   assert.ok(!lone.test(html));
   assert.match(html, /more characters/);
 });
+
+test('a session without any timestamp shows its duration as unknown, not 0ms', () => {
+  const s = parse(`${JSON.stringify({ type: 'user', cwd: '/w', message: { role: 'user', content: 'undated' } })}\n`);
+  assert.equal(s.start, 0);
+  const st = sessionStats(s, pricing);
+  for (const out of [sessionsPage([{ s, st }], [s.project], { sort: 'date', dir: '/d' }), sessionPage(s, st), exportMarkdown(s, st)])
+    assert.doesNotMatch(out, /0ms/);
+});

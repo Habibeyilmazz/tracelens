@@ -1,7 +1,7 @@
 // Server-side HTML for the web UI and the self-contained HTML export.
 // Everything that comes from a log file goes through esc(): transcripts are untrusted input.
 
-import { agentName, cut, esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
+import { agentName, cut, esc, fmtDate, fmtDuration, fmtSpan, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
 import type { Insights, Row, SessionStats } from './insights.js';
 import { termSource, terms, type Hit } from './search.js';
 import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
@@ -226,7 +226,7 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
       const sub = [esc(shortPath(s.project)), ...(s.source === 'codex' ? ['<span class="chip agent">Codex</span>'] : []), ...s.models.map((m) => `<span class="chip">${esc(shortModel(m))}</span>`)].join(' ');
       return `<tr><td class="nowrap when">${fmtDate(s.start)}</td>
 <td class="title"><a href="${href(s)}">${esc(s.title)}</a><div class="sub-line" title="${esc(s.project)}">${sub}</div></td>
-<td class="num" data-label="Duration">${fmtDuration(s.end - s.start)}</td>${tokensCell(st.usage)}<td class="num" data-label="Cost">${costText(st)}</td>
+<td class="num" data-label="Duration">${fmtSpan(s)}</td>${tokensCell(st.usage)}<td class="num" data-label="Cost">${costText(st)}</td>
 <td class="num" data-label="Tools">${st.tools}</td><td class="num${st.errors ? ' bad' : ''}" data-label="Errors">${st.errors}</td></tr>`;
     })
     .join('');
@@ -305,7 +305,7 @@ function sessionHeader(s: Session, st: SessionStats): string {
   const field = (k: string, v: string) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
   return `<h1>${esc(s.title)}</h1><dl class="meta">
 ${field('Project', `<span title="${esc(s.project)}">${esc(shortPath(s.project))}</span>`)}${field('Agent', agentName(s.source))}
-${field('Started', fmtDate(s.start))}${field('Duration', fmtDuration(s.end - s.start))}
+${field('Started', fmtDate(s.start))}${field('Duration', fmtSpan(s))}
 ${field('Models', s.models.map((m) => esc(shortModel(m))).join(', ') || '—')}
 ${field('Tokens in / out', `${fmtTokens(u.input)} / ${fmtTokens(u.output)}`)}
 ${field('Cache write / read', `${fmtTokens(u.cacheWrite)} / ${fmtTokens(u.cacheRead)}`)}

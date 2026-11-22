@@ -6,7 +6,7 @@ import { basename, dirname, join, relative, resolve, isAbsolute, sep } from 'nod
 import { parseArgs } from 'node:util';
 import { filesForPath, parseSession } from './claude.js';
 import { codexArchive, isRollout, parseCodex } from './codex.js';
-import { fmtDate, fmtDuration, fmtUSD, oneLine, shortPath } from './format.js';
+import { fmtDate, fmtSpan, fmtUSD, oneLine, shortPath } from './format.js';
 import { sessionStats } from './insights.js';
 import { exportMarkdown } from './markdown.js';
 import { loadPricing } from './pricing.js';
@@ -95,7 +95,7 @@ async function main(argv: string[]) {
     if (!sessions.length) return console.log(`No sessions found in ${dir} or ${codexDir}`);
     for (const s of sessions) {
       const st = sessionStats(s, pricing);
-      const line = `${s.id}  ${fmtDate(s.start)}  ${fmtDuration(s.end - s.start).padStart(7)}  ${fmtUSD(st.cost).padStart(7)}  ${shortPath(s.project)}  ${oneLine(s.title, 60)}`;
+      const line = `${s.id}  ${fmtDate(s.start)}  ${fmtSpan(s).padStart(7)}  ${fmtUSD(st.cost).padStart(7)}  ${shortPath(s.project)}  ${oneLine(s.title, 60)}`;
       // Titles and paths come from the logs: control characters could drive the terminal (escape sequences).
       console.log(line.replace(/[\u0000-\u001f\u007f-\u009f]/g, ''));
     }
