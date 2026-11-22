@@ -39,7 +39,7 @@ const textValues = (v: unknown): string =>
  *  Quote marks are syntax, never part of a term; repeated terms count once. */
 export function terms(query: string): string[] {
   const out = new Map<string, string>();
-  for (const m of query.matchAll(/"([^"]*)"|[^\s"]+/g)) {
+  for (const m of query.normalize('NFC').matchAll(/"([^"]*)"|[^\s"]+/g)) {
     const t = (m[1] ?? m[0]).trim().replace(/\s+/g, ' ');
     if (t && !out.has(t.toLowerCase())) out.set(t.toLowerCase(), t);
   }
@@ -71,7 +71,8 @@ export function search(sessions: Session[], query: string, perSession = 5): Hit[
     // Snippets in page order: the first perSession, plus the first that shows each term. At most perSession + terms.
     const cands: { m: Match; covers: Set<number>; count: number }[] = [];
     for (const it of sessionItems(session)) {
-      for (const [where, text] of searchable(it)) {
+      for (const [where, raw] of searchable(it)) {
+        const text = raw.normalize('NFC'); // "é" can be one code point or "e" + accent (macOS file names); match either
         // Presence is tested per term: "refund" is in "refunds" even though the one-pass regex reports "refunds".
         each.forEach((re, i) => (found[i] ||= re.test(text)));
         let shownTo = -1, last: (typeof cands)[number] | undefined; // a match inside the previous snippet's text joins it

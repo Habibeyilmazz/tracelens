@@ -11,7 +11,7 @@ import { fmtDuration, fmtTokens, fmtUSD, oneLine } from '../src/format.js';
 import { computeInsights } from '../src/insights.js';
 import { DEFAULT_PRICING_PATH, loadPricing } from '../src/pricing.js';
 import { redactSecrets } from '../src/redact.js';
-import { insightsPage, sessionPage, sessionsPage } from '../src/render.js';
+import { insightsPage, searchPage, sessionPage, sessionsPage } from '../src/render.js';
 import { exportMarkdown } from '../src/markdown.js';
 import { redactSession } from '../src/redact.js';
 import { sessionStats } from '../src/insights.js';
@@ -261,4 +261,14 @@ test('day chart labels carry the year when the range spans more than one year', 
   assert.match(spanning, />2025-08-01<\/text>/);
   assert.match(spanning, />2026-11-21<\/text>/);
   assert.match(insightsPage(computeInsights([b], pricing), [], {}), />11-21<\/text>/);
+});
+
+test('search ignores Unicode normalization: "Café" typed finds "Cafe" + combining accent (macOS file names) and back', () => {
+  const nfd = 'Café menu.pdf', nfc = 'Café menu.pdf';
+  for (const [text, query] of [[nfd, 'Café'], [nfc, 'Café']]) {
+    const s = parse(`${user(`open ${text}`)}\n`);
+    const hit = search([s], query)[0];
+    assert.equal(hit?.total, 1, JSON.stringify(query));
+    assert.match(searchPage(query, [hit]), /<mark>Caf/);
+  }
 });
