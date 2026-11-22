@@ -1,7 +1,7 @@
 // Edge cases found by trying to break tracelens with odd input (round 5). Each one crashed, hung or
 // showed wrong output before its fix.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -9,7 +9,7 @@ import { parseSession } from '../src/claude.js';
 import { parseCodex } from '../src/codex.js';
 import { oneLine } from '../src/format.js';
 import { computeInsights } from '../src/insights.js';
-import { loadPricing } from '../src/pricing.js';
+import { DEFAULT_PRICING_PATH, loadPricing } from '../src/pricing.js';
 import { redactSecrets } from '../src/redact.js';
 import { sessionsPage } from '../src/render.js';
 import { sessionStats } from '../src/insights.js';
@@ -124,6 +124,14 @@ test('absurd token counts are ignored instead of making the cost Infinity', () =
   assert.ok(Number.isFinite(st.cost));
   assert.equal(st.usage.input, 0);
   assert.equal(st.usage.output, 5);
+});
+
+test('a pricing file saved with a byte-order mark (Windows Notepad) still loads', () => {
+  withTemp((dir) => {
+    const file = join(dir, 'pricing.json');
+    writeFileSync(file, '\uFEFF' + readFileSync(DEFAULT_PRICING_PATH, 'utf8'));
+    assert.deepEqual(loadPricing(file), pricing);
+  });
 });
 
 // Writes 600 MB to the temp folder, so it only runs with TRACELENS_SLOW_TESTS=1.

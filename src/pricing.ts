@@ -18,7 +18,7 @@ const FIELDS: (keyof Rates)[] = ['input', 'output', 'cacheWrite', 'cacheWrite1h'
 export function loadPricing(path = DEFAULT_PRICING_PATH): Pricing {
   let data: any;
   try {
-    data = JSON.parse(readFileSync(path, 'utf8'));
+    data = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, '')); // Notepad may save a byte-order mark
   } catch (err) {
     throw new Error(`Cannot read pricing file ${path}: ${(err as Error).message}`);
   }
