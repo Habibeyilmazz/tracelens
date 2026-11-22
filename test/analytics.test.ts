@@ -13,7 +13,12 @@ test('bundled pricing.json is valid and matches dated and prefixed model ids', (
   assert.equal(ratesFor(pricing, 'claude-sonnet-4-20250514'), pricing['claude-sonnet-4']);
   assert.equal(ratesFor(pricing, 'claude-opus-4-1-20250805'), pricing['claude-opus-4-1']);
   assert.equal(ratesFor(pricing, 'us.anthropic.claude-opus-4-20250514-v1:0'), pricing['claude-opus-4']);
-  assert.equal(ratesFor(pricing, 'claude-opus-4-10'), pricing['claude-opus-4'], 'a key must match a whole token, not "claude-opus-4-1"');
+  // An unknown newer version is "not priced", never billed at an older version's rates (opus-4 costs 3x opus-4-5).
+  assert.equal(ratesFor(pricing, 'claude-opus-4-10'), undefined, 'neither "claude-opus-4-1" nor "claude-opus-4" prices claude-opus-4-10');
+  assert.equal(ratesFor(pricing, 'claude-opus-4-9-20270101'), undefined);
+  assert.equal(ratesFor(pricing, 'claude-sonnet-4-7'), undefined);
+  assert.equal(ratesFor(pricing, 'gpt-5-2025-08-07'), pricing['gpt-5'], 'a dated OpenAI snapshot keeps its base price');
+  assert.equal(ratesFor(pricing, 'claude-haiku-4-5@20251001'), pricing['claude-haiku-4-5']);
   assert.equal(ratesFor(pricing, 'claude-3-5-haiku-20241022'), pricing['claude-3-5-haiku']);
   assert.equal(ratesFor(pricing, '<synthetic>'), undefined);
 });

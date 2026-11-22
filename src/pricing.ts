@@ -47,8 +47,9 @@ export function parsePricing(data: any, where = 'pricing'): Pricing {
   return out;
 }
 
-/** The longest pricing key that appears in the model id as a whole token ("claude-opus-4" prices
- *  "claude-opus-4-20250514" but not "claude-opus-4-1-…", and "gpt-5" prices "gpt-5-codex" but not "gpt-5.2"). */
+/** The longest pricing key that appears in the model id as a whole token and is not followed by another version
+ *  number: "claude-opus-4" prices "claude-opus-4-20250514" (a date) but not "claude-opus-4-9", and "gpt-5" prices
+ *  "gpt-5-codex" and "gpt-5-2025-08-07" but not "gpt-5.2". */
 export function ratesFor(pricing: Pricing, model: string): Rates | undefined {
   // Called once per request in every session; the scan over all keys was most of the insights page's time.
   let memo = matched.get(pricing);
@@ -62,7 +63,8 @@ function scanRates(pricing: Pricing, model: string): Rates | undefined {
   let best: string | undefined;
   for (const key of Object.keys(pricing)) {
     const i = model.indexOf(key);
-    if (i < 0 || /^(?:[a-z0-9]|\.\d)/i.test(model.slice(i + key.length))) continue;
+    // A "-N" or "-NN" right after the key is a newer minor version (claude-opus-4-9); a longer number is a date.
+    if (i < 0 || /^(?:[a-z0-9]|\.\d|-\d{1,2}(?!\d))/i.test(model.slice(i + key.length))) continue;
     if (!best || key.length > best.length) best = key;
   }
   return best ? pricing[best] : undefined;
