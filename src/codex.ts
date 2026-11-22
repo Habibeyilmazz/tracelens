@@ -4,7 +4,7 @@
 
 import { readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { num, parseTs, readLines, type SessionFiles } from './claude.js';
+import { num, parseTs, readLines, tooDeep, type SessionFiles } from './claude.js';
 import { cut } from './format.js';
 import type { Item, Session, ToolCall, UsageEvent } from './types.js';
 
@@ -120,7 +120,7 @@ export function parseCodex(files: SessionFiles): Session {
 
     if (type === 'session_meta') {
       // The id ends up in URLs: only a plain one (Codex writes UUIDs) is taken from inside the file.
-      if (typeof p.id === 'string' && /^[\w.-]{1,100}$/.test(p.id)) id = p.id;
+      if (typeof p.id === 'string' && /^\w[\w.-]{0,99}$/.test(p.id)) id = p.id;
       if (typeof p.cwd === 'string') cwd ??= p.cwd;
     } else if (type === 'turn_context') {
       if (typeof p.model === 'string' && p.model) models.add((model = p.model));
@@ -150,7 +150,9 @@ export function parseCodex(files: SessionFiles): Session {
         case 'function_call': {
           let input: unknown = p.arguments;
           try {
-            if (typeof input === 'string') input = JSON.parse(input);
+            // The arguments are a JSON string, so the line-level depth check never saw inside them.
+            const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+            if (!tooDeep(parsed)) input = parsed;
           } catch {
             // keep the raw argument string
           }

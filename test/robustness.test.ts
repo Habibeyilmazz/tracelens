@@ -11,7 +11,9 @@ import { oneLine } from '../src/format.js';
 import { computeInsights } from '../src/insights.js';
 import { DEFAULT_PRICING_PATH, loadPricing } from '../src/pricing.js';
 import { redactSecrets } from '../src/redact.js';
-import { sessionsPage } from '../src/render.js';
+import { sessionPage, sessionsPage } from '../src/render.js';
+import { exportMarkdown } from '../src/markdown.js';
+import { redactSession } from '../src/redact.js';
 import { sessionStats } from '../src/insights.js';
 import { Store } from '../src/store.js';
 
@@ -53,6 +55,15 @@ test('one absurdly nested record does not drop the whole session', () => {
     writeFileSync(join(dir, 'p', 's.jsonl'), `${user('x')}\n${deep}\n`);
     assert.equal(new Store(dir).sessions().length, 1);
   });
+});
+
+test('absurdly nested Codex tool arguments (a JSON string inside the record) stay a string', () => {
+  const args = `{"x":${'['.repeat(10_000)}0${']'.repeat(10_000)}}`;
+  const s = withCodex([{ timestamp: '2026-03-08T10:00:00Z', type: 'response_item', payload: { type: 'function_call', name: 'shell', call_id: 't', arguments: args } }]);
+  const call = s.items.find((i) => i.kind === 'tool');
+  assert.equal(call?.kind === 'tool' && call.input, args);
+  const st = sessionStats(s, pricing);
+  assert.doesNotThrow(() => [sessionPage(s, st), exportMarkdown(s, st), redactSession(s)]);
 });
 
 test('a byte-order mark before the first record is ignored', () => {
@@ -108,7 +119,7 @@ test('redaction survives multi-megabyte runs without a stack overflow, and still
 
 test('a Codex session id from inside the file must be a plain id (a lone surrogate broke the whole session list)', () => {
   const prompt = { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] };
-  for (const bad of ['x\uD800', 'a/b', '', 'x'.repeat(300), 42]) {
+  for (const bad of ['x\uD800', 'a/b', '', '.', '..', 'x'.repeat(300), 42]) {
     const s = withCodex([{ timestamp: '2026-03-08T10:00:00Z', type: 'session_meta', payload: { id: bad, cwd: '/w' } }, { timestamp: '2026-03-08T10:00:00Z', type: 'response_item', payload: prompt }]);
     assert.equal(s.id, 'c', `kept id ${JSON.stringify(bad)}`);
     assert.doesNotThrow(() => sessionsPage([{ s, st: sessionStats(s, pricing) }], [s.project], { sort: 'date', dir: '/d' }));

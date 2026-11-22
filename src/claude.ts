@@ -130,7 +130,7 @@ export function readLines(path: string): Line[] {
 
 // No real log nests this deep. Stringifying, redacting and rendering recurse, so a record nested 100,000 levels
 // deep would overflow the stack and take its whole session down; it is shown as an unreadable line instead.
-const tooDeep = (v: unknown, depth = 0): boolean =>
+export const tooDeep = (v: unknown, depth = 0): boolean =>
   depth > 200 || (typeof v === 'object' && v !== null && Object.values(v).some((x) => tooDeep(x, depth + 1)));
 
 // Before 2000 or from 2100 on, a timestamp is a broken clock or a placeholder. Trusting it would stretch
