@@ -7,8 +7,10 @@ import type { Hit } from './search.js';
 import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
 
 import { mdToHtml } from './mdhtml.js';
+import { folderOf } from './store.js';
 
 export { esc };
+const href = (s: Session) => `/session/${encodeURIComponent(folderOf(s))}/${encodeURIComponent(s.id)}`;
 const qs = (params: Record<string, string | undefined>) => {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) p.set(k, v);
@@ -201,7 +203,7 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
     .map(({ s, st }) => {
       const sub = [esc(shortPath(s.project)), ...s.models.map((m) => `<span class="chip">${esc(shortModel(m))}</span>`)].join(' ');
       return `<tr><td class="nowrap when">${fmtDate(s.start)}</td>
-<td class="title"><a href="/session/${encodeURIComponent(s.id)}">${esc(s.title)}</a><div class="sub-line" title="${esc(s.project)}">${sub}</div></td>
+<td class="title"><a href="${href(s)}">${esc(s.title)}</a><div class="sub-line" title="${esc(s.project)}">${sub}</div></td>
 <td class="num" data-label="Duration">${fmtDuration(s.end - s.start)}</td>${tokensCell(st.usage)}<td class="num" data-label="Cost">${costText(st)}</td>
 <td class="num" data-label="Tools">${st.tools}</td><td class="num${st.errors ? ' bad' : ''}" data-label="Errors">${st.errors}</td></tr>`;
     })
@@ -235,14 +237,14 @@ export function searchPage(q: string, hits: Hit[]): string {
   const list = hits
     .slice(0, MAX_HITS)
     .map((h) => {
-      const href = `/session/${encodeURIComponent(h.session.id)}`;
+      const link = href(h.session);
       const more = h.total > h.matches.length ? `<li class="muted">and ${h.total - h.matches.length} more in this session</li>` : '';
-      return `<li><a href="${href}"><strong>${esc(h.session.title)}</strong></a>
+      return `<li><a href="${link}"><strong>${esc(h.session.title)}</strong></a>
 <div class="sub-line">${esc(shortPath(h.session.project))} · ${fmtDate(h.session.start)} · ${h.total} ${h.total === 1 ? 'match' : 'matches'}</div>
 <ol>${h.matches
         .map(
           (m) =>
-            `<li><a href="${href}#i-${m.n}"><span class="where">${esc(m.where)}</span><span class="snip">${esc(flat(m.before))}<mark>${esc(m.match)}</mark>${esc(flat(m.after))}</span></a></li>`,
+            `<li><a href="${link}#i-${m.n}"><span class="where">${esc(m.where)}</span><span class="snip">${esc(flat(m.before))}<mark>${esc(m.match)}</mark>${esc(flat(m.after))}</span></a></li>`,
         )
         .join('')}${more}</ol></li>`;
     })
@@ -275,9 +277,8 @@ ${field('Estimated cost', costText(st))}${field('Tool calls', String(st.tools))}
 }
 
 export function sessionPage(s: Session, st: SessionStats): string {
-  const id = encodeURIComponent(s.id);
   const toolbar = `<div class="toolbar"><button type="button" data-toggle="open">Expand all tool calls</button><button type="button" data-toggle="close">Collapse all</button>
-<form method="get" action="/session/${id}/export"><label>Export <select name="format"><option value="md">Markdown</option><option value="html">HTML</option></select></label>
+<form method="get" action="${href(s)}/export"><label>Export <select name="format"><option value="md">Markdown</option><option value="html">HTML</option></select></label>
 <label><input type="checkbox" name="redact" value="1" checked> Redact paths and secrets</label><button>Download</button></form></div>`;
   return page(s.title, sessionHeader(s, st) + toolbar + transcript(s, { clip: 40_000, link: true }), 'session');
 }
@@ -424,7 +425,7 @@ ${ins.tools
 ${ins.slowest
   .map(
     ({ session, call }) =>
-      `<tr><td class="num">${fmtDuration(call.durationMs)}</td><td><code>${esc(call.name)}</code><div class="sub-line mono">${esc(oneLine(toolLabel(call.input), 70))}</div></td><td><a href="/session/${encodeURIComponent(session.id)}#i-${call.n}">${esc(oneLine(session.title, 60))}</a></td></tr>`,
+      `<tr><td class="num">${fmtDuration(call.durationMs)}</td><td><code>${esc(call.name)}</code><div class="sub-line mono">${esc(oneLine(toolLabel(call.input), 70))}</div></td><td><a href="${href(session)}#i-${call.n}">${esc(oneLine(session.title, 60))}</a></td></tr>`,
   )
   .join('')}</tbody></table></div>`
     : `<p class="empty">No timed tool calls in this range.</p>`;

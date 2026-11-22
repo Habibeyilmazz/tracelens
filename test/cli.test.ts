@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { A, B, FIXTURES } from './helpers.js';
+import { A, B, duplicateIdDir, FIXTURES } from './helpers.js';
 
 const CLI = fileURLToPath(new URL('../src/cli.js', import.meta.url));
 const run = (...args: string[]) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });
@@ -71,4 +71,16 @@ test('export reports unknown sessions and bad formats', () => {
   assert.match(run('export', '/no/such/file.jsonl', '--dir', FIXTURES).stderr, /file not found: \/no\/such\/file\.jsonl/);
   assert.match(run('export', A, '--dir', FIXTURES, '--format', 'pdf').stderr, /--format must be md or html/);
   assert.match(run('serve', '--dir', FIXTURES, '--port', 'abc').stderr, /--port must be a number/);
+});
+
+test('export refuses an id that is in two project folders and names both files', () => {
+  const dir = duplicateIdDir();
+  try {
+    const r = run('export', A, '--dir', dir);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /is in 2 project folders/);
+    assert.ok(r.stderr.includes(join(dir, '-Users-dev-one', `${A}.jsonl`)) && r.stderr.includes(join(dir, '-Users-dev-two', `${A}.jsonl`)));
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 });

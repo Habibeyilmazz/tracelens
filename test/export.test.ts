@@ -128,7 +128,7 @@ test('search results count every session, list the top 100 and say so', () => {
   const html = searchPage('x', hits);
   assert.match(html, /101 matches in 101 sessions/);
   assert.match(html, /Showing the 100 sessions with the most matches/);
-  assert.equal(html.match(/href="\/session\/s\d+"/g)!.length, 100);
+  assert.equal(html.match(/href="\/session\/-Users-dev-acme-api\/s\d+"/g)!.length, 100);
 });
 
 test('assistant text is rendered as Markdown, user text stays as typed', () => {

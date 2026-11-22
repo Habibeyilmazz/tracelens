@@ -1,4 +1,5 @@
 import { statSync } from 'node:fs';
+import { basename, dirname } from 'node:path';
 import { discover, parseSession } from './claude.js';
 import type { Session } from './types.js';
 
@@ -41,12 +42,16 @@ function signature(path: string): string {
   }
 }
 
+/** The project folder a session file sits in; with the id it names one session (ids can repeat across folders). */
+export const folderOf = (s: Session) => basename(dirname(s.file));
+
 /** Exact id, or a unique id prefix. Throws with a message fit for the user otherwise. */
 export function findSession(sessions: Session[], query: string): Session {
-  const exact = sessions.find((s) => s.id === query);
-  if (exact) return exact;
-  const matches = sessions.filter((s) => s.id.startsWith(query));
+  const exact = sessions.filter((s) => s.id === query);
+  const matches = exact.length ? exact : sessions.filter((s) => s.id.startsWith(query));
   if (matches.length === 1) return matches[0];
   if (matches.length === 0) throw new Error(`No session matches "${query}". Run "tracelens list" to see session ids.`);
+  if (exact.length)
+    throw new Error(`session ${query} is in ${exact.length} project folders; export it by its file path instead:\n${exact.map((s) => `  ${s.file}`).join('\n')}`);
   throw new Error(`"${query}" matches ${matches.length} sessions; use more characters of the id.`);
 }

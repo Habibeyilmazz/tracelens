@@ -5,7 +5,7 @@ import type { Pricing } from './pricing.js';
 import { redactSession } from './redact.js';
 import { APP_JS, esc, exportHtml, insightsPage, page, searchPage, sessionPage, sessionsPage } from './render.js';
 import { search } from './search.js';
-import type { Store } from './store.js';
+import { folderOf, type Store } from './store.js';
 import { totalTokens, type Session } from './types.js';
 
 const SECURITY_HEADERS = {
@@ -71,17 +71,18 @@ export function createHandler(store: Store, pricing: Pricing) {
         return send(200, insightsPage(computeInsights(sessions, pricing, opts), projects, opts));
       }
 
-      const m = /^\/session\/([^/]+)(\/export)?$/.exec(path);
+      // /session/<project folder>/<id>: ids alone can repeat across project folders.
+      const m = /^\/session\/([^/]+)\/([^/]+)(\/export)?$/.exec(path);
       if (m) {
-        let id: string;
+        let folder: string, id: string;
         try {
-          id = decodeURIComponent(m[1]);
+          [folder, id] = [decodeURIComponent(m[1]), decodeURIComponent(m[2])];
         } catch {
           return send(400, 'Bad session id', 'text/plain');
         }
-        const s = sessions.find((x) => x.id === id);
-        if (!s) return send(404, page('Not found', `<h1>Session not found</h1><p>No session with id <code>${esc(id)}</code>. It may have been deleted. <a href="/">Back to sessions</a></p>`, 'session'));
-        if (!m[2]) return send(200, sessionPage(s, stats(s)));
+        const s = sessions.find((x) => x.id === id && folderOf(x) === folder);
+        if (!s) return send(404, page('Not found', `<h1>Session not found</h1><p>No session with id <code>${esc(id)}</code> in <code>${esc(folder)}</code>. It may have been deleted. <a href="/">Back to sessions</a></p>`, 'session'));
+        if (!m[3]) return send(200, sessionPage(s, stats(s)));
         const format = p.get('format') === 'html' ? 'html' : 'md';
         const out = p.get('redact') === '1' ? redactSession(s) : s;
         const name = `tracelens-${s.id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 12)}.${format}`;
