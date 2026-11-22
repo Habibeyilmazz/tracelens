@@ -70,40 +70,44 @@ export function search(sessions: Session[], query: string, perSession = 5): Hit[
     const shown = ts.map(() => false);
     // Snippets in page order: the first perSession, plus the first that shows each term. At most perSession + terms.
     const cands: { m: Match; covers: Set<number>; count: number }[] = [];
-    for (const it of sessionItems(session)) {
+    const texts: [number, string, string][] = [];
+    for (const it of sessionItems(session))
       for (const [where, raw] of searchable(it)) {
         const text = raw.normalize('NFC'); // "é" can be one code point or "e" + accent (macOS file names); match either
         // Presence is tested per term: "refund" is in "refunds" even though the one-pass regex reports "refunds".
         each.forEach((re, i) => (found[i] ||= re.test(text)));
-        let shownTo = -1, last: (typeof cands)[number] | undefined; // a match inside the previous snippet's text joins it
-        for (const m of text.matchAll(all)) {
-          const i = m.index, end = i + m[0].length;
-          const term = order[m.slice(1).findIndex((g) => g !== undefined)];
-          total++;
-          if (end <= shownTo && (last || shown[term])) {
-            if (last) last.covers.add(term), last.count++, (shown[term] = true);
-            continue;
-          }
-          shownTo = end + CONTEXT;
-          last = undefined;
-          if (cands.length >= perSession && shown[term]) continue;
-          shown[term] = true;
-          last = {
-            covers: new Set([term]),
-            count: 1,
-            m: {
-              n: it.n,
-              where,
-              before: (i > CONTEXT ? '…' : '') + text.slice(Math.max(0, i - CONTEXT), i).replace(/^[\uDC00-\uDFFF]/, ''), // no half emoji
-              match: m[0],
-              after: cut(text.slice(end, end + CONTEXT), CONTEXT) + (end + CONTEXT < text.length ? '…' : ''),
-            },
-          };
-          cands.push(last);
+        texts.push([it.n, where, text]);
+      }
+    // Snippets only for sessions holding every term: the one-pass regex is the slow part on long queries.
+    if (!found.every(Boolean)) continue;
+    for (const [n, where, text] of texts) {
+      let shownTo = -1, last: (typeof cands)[number] | undefined; // a match inside the previous snippet's text joins it
+      for (const m of text.matchAll(all)) {
+        const i = m.index, end = i + m[0].length;
+        const term = order[m.slice(1).findIndex((g) => g !== undefined)];
+        total++;
+        if (end <= shownTo && (last || shown[term])) {
+          if (last) last.covers.add(term), last.count++, (shown[term] = true);
+          continue;
         }
+        shownTo = end + CONTEXT;
+        last = undefined;
+        if (cands.length >= perSession && shown[term]) continue;
+        shown[term] = true;
+        last = {
+          covers: new Set([term]),
+          count: 1,
+          m: {
+            n,
+            where,
+            before: (i > CONTEXT ? '…' : '') + text.slice(Math.max(0, i - CONTEXT), i).replace(/^[\uDC00-\uDFFF]/, ''), // no half emoji
+            match: m[0],
+            after: cut(text.slice(end, end + CONTEXT), CONTEXT) + (end + CONTEXT < text.length ? '…' : ''),
+          },
+        };
+        cands.push(last);
       }
     }
-    if (!found.every(Boolean)) continue;
     // First the earliest snippet for each term, so every word shows up at least once; then fill in page order.
     const picked = new Set<(typeof cands)[number]>();
     for (let t = 0; t < ts.length && picked.size < perSession; t++)
