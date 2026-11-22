@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed (round 10, design pass)
+
+Looked at every page in Chromium (Playwright 1.65.1) at 1280px and 390px, light and dark, plus the empty, no-results and not-found states, and tabbed through a session page with the keyboard. Fixed what was broken or cramped; the overall look was kept.
+
+- Fixed: keyboard focus on a transcript control (time link, tool call, thinking block) showed only a 2px sliver at its left edge. Round 8's `content-visibility:auto` on transcript rows clips painting to the row, and the focus ring was drawn outside the control. Inside the transcript the ring is now drawn just inside the control. New E2E test measures the ring against its row (checked: it fails without the fix).
+- Claude Code `progress` records (hook, shell and subagent progress ticks) are skipped like `file-history-snapshot`, instead of each becoming a collapsed "Unrecognized event" row. Their end result is already in the tool result, system record or subagent file. The shape (`type: "progress"` with a `data.type` such as `bash_progress` or `hook_progress`) comes from Claude Code's public behaviour as remembered, not from a real log, which agents here may not open. Other unknown types are still shown raw.
+- Phones (640px and narrower): the step time sits in a narrow column next to each step, as on desktop. Before, it took a line of its own above every message and tool call.
+- Charts on phones: the axis labels were about 8px tall; they are now about 11px, and the first and last dates are anchored inside the plot so the last one is no longer cut off.
+- Tables that scroll sideways (insights on phones) show a soft shadow at the edge that has more columns. File paths in "Files edited most often" wrap at `/`, so that table now fits a phone. Table cells line up on the text baseline (numbers used to sit lower than the monospace names next to them).
+- Failed tool calls hover in red, not the teal used for successful ones. The "Session not found" and "Page not found" pages use the same panel as the other empty states.
+- README screenshots re-taken from the running demo. `docs/demo.gif` was not re-recorded: on desktop only the chart date labels and the error hover look different.
+
+### Notes for the next person (round 10)
+
+- Reduced motion: nothing to do. The UI has no animations or transitions, and its scrolling (search hit, live update) is instant.
+- The Codex second-opinion review hit its usage limit again ("try again at 9:32 AM"); `codex exec` also waits on stdin unless given `< /dev/null`. Safari and Firefox are still untested (only Chromium is installed). Axe was not re-run this round; the changes are CSS layout and one SVG attribute, checked by screenshots and the E2E suite (5 tests, including the 320px no-sideways-scroll test).
+
 ### Fixed (round 9, first-run review)
 
 Done from a fresh clone of the GitHub repo, following the README quickstart word for word (with `CLAUDE_CONFIG_DIR` and `CODEX_HOME` pointed at empty folders, since agents here may not read real logs): `npm install`, `npm run build`, `serve` (empty state), `npm run demo`, `npm test` (103 pass), `npm run test:e2e` (4 pass), `scripts/screenshots.mjs` (no console errors or sideways scroll), and every CLI command and error path on the fixtures. Everything in the quickstart worked; these were wrong:
