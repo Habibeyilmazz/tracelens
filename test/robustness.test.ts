@@ -232,3 +232,14 @@ test('a session without any timestamp shows its duration as unknown, not 0ms', (
   for (const out of [sessionsPage([{ s, st }], [s.project], { sort: 'date', dir: '/d' }), sessionPage(s, st), exportMarkdown(s, st)])
     assert.doesNotMatch(out, /0ms/);
 });
+
+test('a last line still being written (no newline yet) is not shown as unreadable; a broken finished line still is', () => {
+  const half = assistant('2026-03-08T09:31:00Z').slice(0, 60);
+  const writing = parse(`${user('live')}\n${half}`);
+  assert.ok(!writing.items.some((i) => i.kind === 'raw'), 'half-written line shown');
+  assert.equal(writing.title, 'live');
+  const broken = parse(`${user('done')}\n${half}\n`);
+  assert.ok(broken.items.some((i) => i.kind === 'raw' && i.label === 'Unreadable line 2'));
+  // a complete last record without a newline is kept
+  assert.ok(parse(`${user('x')}\n${assistant('2026-03-08T09:31:00Z')}`).items.some((i) => i.kind === 'assistant'));
+});

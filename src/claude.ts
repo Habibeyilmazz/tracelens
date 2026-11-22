@@ -119,6 +119,8 @@ export function readLines(path: string): Line[] {
       // Nesting 200 levels deep needs at least 400 characters, so short lines skip the walk.
       if (raw.length > 400 && tooDeep(rec)) rec = undefined;
     } catch {
+      // No newline yet: the agent is still writing this record (big ones land in several writes). It shows up once complete.
+      if (nl < 0) break;
       rec = undefined;
     }
     // Only plain objects count as records; anything else is shown raw. The text is kept only for those.
