@@ -11,7 +11,17 @@ All notable changes to this project are documented here. The format follows [Kee
 - `CONTRIBUTING.md`, `SECURITY.md`, and issue forms for bugs, unrecognized log records (asks for the record's shape with made-up values, never a real log) and feature ideas. New repo label `log-format`.
 - Tests for two gaps the last round left open: a session file over 2 GiB (a sparse file, so no disk is used) is skipped with a warning while the other sessions load; and the E2E test now catches a broken `app.js` `reveal()` in Chromium by closing the `<details>` and firing `hashchange` without a navigation (checked: with `reveal()` disabled the test fails).
 
+### Fixed (round 6, from a Codex review of the README's claims against the code)
+
+- `export -o` wrote into a log folder when the file name started with `..` (`~/.claude/projects/..report.md`): the read-only guard took any relative path starting with `..` as outside the folder.
+- Assistant `content` that is an object instead of a list was silently dropped; it is now shown raw, like any unknown block.
+- Search missed tool input as shown on the page when it held backslashes or quotes (`C:\work\x`, `say "hi"`): it searched the JSON-escaped text.
+- Codex: `Exit code: -1` and JSON-text output with `"success": false` were counted as successful calls.
+- README and SECURITY said the server accepts only GET; it accepts GET and HEAD. README now says text blocks over 40,000 characters are cut on the page (with a note), not in exports.
+
 ### Notes for the next person (round 6)
+
+- The Codex review also noted that the E2E test cannot catch the removal of the initial `reveal()` call on page load, because Chromium opens the `<details>` itself on a fresh load with a hash. Only the `hashchange` path is covered; Firefox/WebKit are not installed here.
 
 - Repo description now mentions Codex; topics `codex`, `codex-cli`, `anthropic`, `llm` added. Private vulnerability reporting is off on the repo, so `SECURITY.md` falls back to "open an issue asking for a contact". Turning it on (repo Settings, Security) is the owner's call. The hero image would also work as the repo's social preview, which can only be set in the web UI.
 - Still open: the Codex parser has never seen a real rollout log (agents here may not open real logs; the new issue form is how real shapes should arrive). Long-context price tiers are not modelled. Files over 2 GiB are skipped, not streamed.
