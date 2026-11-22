@@ -1,14 +1,8 @@
 import { isAbsolute, join } from 'node:path';
-import { patchFiles } from './format.js';
+import { dayKey, patchFiles } from './format.js';
 import { costOf, type Pricing } from './pricing.js';
 import { addUsage, emptyUsage, isErrorItem, sessionItems, totalTokens, type Session, type ToolCall, type Usage } from './types.js';
 
-const pad = (n: number) => String(n).padStart(2, '0');
-/** Calendar day in the machine's local time zone. */
-export const dayKey = (ts: number) => {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
 
 export const EDIT_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit']);
 

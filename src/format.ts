@@ -5,10 +5,16 @@ export const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => ENT[c]);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** Calendar day in the machine's local time zone. */
+export const dayKey = (ts: number) => {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 export function fmtDate(ts: number): string {
   if (!ts) return '—';
   const d = new Date(ts);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${dayKey(ts)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export function fmtDuration(ms: number | undefined): string {
