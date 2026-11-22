@@ -10,7 +10,7 @@ mkdirSync(`${out}/qa`, { recursive: true }); // qa/ holds extra checks, not comm
 
 const browser = await chromium.launch();
 const problems = [];
-async function shoot(name, path, { width = 1280, height = 860, scheme = 'light', full = false, before } = {}) {
+async function shoot(name, path, { width = 1280, height = 860, scheme = 'light', full = false, before, scrolled = false } = {}) {
   const page = await browser.newPage({ viewport: { width, height }, colorScheme: scheme, deviceScaleFactor: 2 });
   page.on('console', (m) => m.type() === 'error' && problems.push(`${name}: console ${m.text()}`));
   page.on('pageerror', (e) => problems.push(`${name}: ${e.message}`));
@@ -18,7 +18,7 @@ async function shoot(name, path, { width = 1280, height = 860, scheme = 'light',
   if (!res.ok()) problems.push(`${name}: HTTP ${res.status()}`);
   if (before) {
     await before(page);
-    await page.evaluate(() => window.scrollTo(0, 0));
+    if (!scrolled) await page.evaluate(() => window.scrollTo(0, 0));
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 0) problems.push(`${name}: page scrolls horizontally by ${overflow}px`);
@@ -41,6 +41,13 @@ await shoot('session', href, {
     await p.locator('details.tool.error > summary').first().click().catch(() => {});
   },
 });
+await shoot('session-reply', href, {
+  width: 1100,
+  height: 620,
+  scrolled: true,
+  before: (p) => p.locator('.k-assistant').last().evaluate((el) => el.scrollIntoView({ block: 'end' })),
+});
+await shoot('qa/sessions-mobile-dark', '/', { width: 390, height: 844, scheme: 'dark' });
 await shoot('search', '/search?q=config.timeoutMs');
 await shoot('session-dark', href, { scheme: 'dark', before: (p) => p.locator('[data-toggle=open]').click() });
 await shoot('qa/insights-dark', '/insights', { scheme: 'dark' });
