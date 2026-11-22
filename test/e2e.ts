@@ -2,7 +2,7 @@
 // Run with `npm run test:e2e` (needs Playwright's Chromium); kept out of `npm test` so that stays fast.
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,15 +17,20 @@ let server: ChildProcess;
 let browser: Browser;
 const problems: string[] = [];
 
-before(async () => {
-  server = spawn(process.execPath, [CLI, 'serve', '--no-open', '--port', String(PORT), '--dir', FIXTURES, '--codex-dir', CODEX_FIXTURES], {
+async function serve(port: number, dir: string, codexDir: string): Promise<ChildProcess> {
+  const child = spawn(process.execPath, [CLI, 'serve', '--no-open', '--port', String(port), '--dir', dir, '--codex-dir', codexDir], {
     env: { ...process.env, CODEX_HOME: join(tmpdir(), 'tracelens-no-codex-home') },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   await new Promise<void>((resolve, reject) => {
-    server.stdout!.on('data', (d: Buffer) => d.toString().includes('open http') && resolve());
-    server.once('exit', (code) => reject(new Error(`tracelens serve exited with ${code}`)));
+    child.stdout!.on('data', (d: Buffer) => d.toString().includes('open http') && resolve());
+    child.once('exit', (code) => reject(new Error(`tracelens serve exited with ${code}`)));
   });
+  return child;
+}
+
+before(async () => {
+  server = await serve(PORT, FIXTURES, CODEX_FIXTURES);
   browser = await chromium.launch();
 });
 
@@ -112,4 +117,42 @@ test('an unknown session and a broken URL give friendly pages, not a crash', asy
   const res = await page.goto(`${BASE}/session/%E0%A4%A/x`);
   assert.equal(res?.status(), 400);
   await page.close();
+});
+
+test('a running session updates in place and keeps open tool calls open', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-e2e-live-'));
+  mkdirSync(join(dir, '-Users-dev-live'));
+  const file = join(dir, '-Users-dev-live', 'live-1.jsonl');
+  const step = (n: number) =>
+    appendFileSync(
+      file,
+      [
+        { type: 'assistant', message: { id: `m${n}`, content: [{ type: 'text', text: `Step ${n} reply` }, { type: 'tool_use', id: `t${n}`, name: 'Bash', input: { command: `run step ${n}` } }] } },
+        { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `t${n}`, content: `output of step ${n}` }] } },
+      ].map((r) => JSON.stringify({ ...r, timestamp: new Date().toISOString(), cwd: '/Users/dev/live' }) + '\n').join(''),
+    );
+  appendFileSync(file, JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), cwd: '/Users/dev/live', message: { content: 'Watch me work' } }) + '\n');
+  step(0);
+  const port = PORT - 1;
+  const live = await serve(port, dir, join(dir, 'no-codex'));
+  try {
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://127.0.0.1:${port}/session/-Users-dev-live/live-1`);
+    assert.match((await page.locator('[data-live]').textContent()) ?? '', /Live/);
+    await page.locator('details.tool summary').first().click();
+    step(1);
+    await page.getByText('Step 1 reply').waitFor({ timeout: 10_000 });
+    assert.equal(await page.locator('details.tool').count(), 2);
+    assert.equal(await page.locator('details.tool').first().getAttribute('open'), '', 'the tool call opened before the update is still open');
+    assert.equal(await page.locator('details.tool').nth(1).getAttribute('open'), null, 'the new tool call arrives collapsed');
+    assert.match((await page.locator('[data-live]').textContent()) ?? '', /updated/);
+    await page.close();
+    assert.deepEqual(errors, []);
+  } finally {
+    live.kill();
+    rmSync(dir, { recursive: true });
+  }
 });

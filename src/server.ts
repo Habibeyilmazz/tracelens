@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { computeInsights, sessionStats, type SessionStats } from './insights.js';
 import { exportMarkdown } from './markdown.js';
@@ -9,7 +10,7 @@ import { folderOf, type Store } from './store.js';
 import { totalTokens, type Session } from './types.js';
 
 const SECURITY_HEADERS = {
-  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cross-Origin-Opener-Policy': 'same-origin',
@@ -19,6 +20,7 @@ const SECURITY_HEADERS = {
 
 export function createHandler(store: Store, pricing: Pricing) {
   const statsCache = new WeakMap<Session, SessionStats>();
+  const salt = randomUUID(); // a restart (maybe with another pricing file) must not answer an old ETag with 304
   const stats = (s: Session) => {
     let st = statsCache.get(s);
     if (!st) statsCache.set(s, (st = sessionStats(s, pricing)));
@@ -89,7 +91,12 @@ export function createHandler(store: Store, pricing: Pricing) {
         }
         const s = sessions.find((x) => x.id === id && folderOf(x) === folder);
         if (!s) return send(404, page('Not found', `<h1>Session not found</h1><p>No session with id <code>${esc(id)}</code> in <code>${esc(folder)}</code>. It may have been deleted. <a href="/">Back to sessions</a></p>`, 'session'));
-        if (!m[3]) return send(200, sessionPage(s, stats(s)));
+        if (!m[3]) {
+          // The live view polls with If-None-Match: a 304 costs a stat of the session's files, not a render.
+          const etag = `"${createHash('sha1').update(salt + store.signatureOf(s)).digest('base64url')}"`;
+          if (req.headers['if-none-match'] === etag) return send(304, '', undefined, { ETag: etag });
+          return send(200, sessionPage(s, stats(s), etag), undefined, { ETag: etag });
+        }
         const format = p.get('format') === 'html' ? 'html' : 'md';
         const out = p.get('redact') === '1' ? redactSession(s) : s;
         const name = `tracelens-${s.id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 12)}.${format}`;

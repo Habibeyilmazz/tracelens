@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request } from 'node:http';
@@ -22,7 +22,7 @@ after(() => server.close());
 function get(path: string, opts: { method?: string; host?: string; port?: number; headers?: Record<string, string> } = {}): Promise<{ status: number; headers: Record<string, any>; body: string }> {
   return new Promise((resolve, reject) => {
     const port = opts.port ?? PORT;
-    const req = request({ host: '127.0.0.1', port, path, method: opts.method ?? 'GET', headers: { host: opts.host ?? `127.0.0.1:${port}`, ...opts.headers } }, (res) => {
+    const req = request({ agent: false, host: '127.0.0.1', port, path, method: opts.method ?? 'GET', headers: { host: opts.host ?? `127.0.0.1:${port}`, ...opts.headers } }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (c) => (body += c));
@@ -147,6 +147,37 @@ test('two project folders holding the same session id each get their own page', 
     assert.equal((await at(`/session/-Users-dev-three/${A}`)).status, 404);
   } finally {
     dup.close();
+    rmSync(dir, { recursive: true });
+  }
+});
+
+test('a session page answers If-None-Match with 304 until its log grows, and marks recent sessions live', async () => {
+  const old = await get(SA);
+  assert.ok(old.headers.etag, 'session pages carry an ETag');
+  assert.doesNotMatch(old.body, /data-live/, 'a session that ended long ago is not live');
+  assert.match(old.headers['content-security-policy'], /connect-src 'self'/);
+
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-live-'));
+  mkdirSync(join(dir, '-Users-dev-live'));
+  const file = join(dir, '-Users-dev-live', 'live-1.jsonl');
+  const line = (text: string) => JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), cwd: '/Users/dev/live', message: { content: text } }) + '\n';
+  writeFileSync(file, line('First prompt'));
+  const port = PORT + 2;
+  const srv = await listen(new Store(dir), loadPricing(), port);
+  try {
+    const path = '/session/-Users-dev-live/live-1';
+    const first = await get(path, { port });
+    assert.match(first.body, new RegExp(`data-live="${first.headers.etag.replaceAll('"', '&quot;')}"`), 'a recent session is live and its page holds its ETag');
+    const same = await get(path, { port, headers: { 'if-none-match': first.headers.etag } });
+    assert.equal(same.status, 304);
+    assert.equal(same.body, '');
+    appendFileSync(file, line('Second prompt'));
+    const grown = await get(path, { port, headers: { 'if-none-match': first.headers.etag } });
+    assert.equal(grown.status, 200);
+    assert.notEqual(grown.headers.etag, first.headers.etag);
+    assert.match(grown.body, /Second prompt/);
+  } finally {
+    await new Promise((r) => srv.close(r)); // the next test reuses this port
     rmSync(dir, { recursive: true });
   }
 });

@@ -66,6 +66,7 @@ td.title a:hover{text-decoration:underline}
 .chip.agent{border-color:var(--tool);color:var(--tool)}
 .bad{color:var(--err);font-weight:600}
 code,.mono{font-family:var(--mono);font-size:.86em}
+.live{margin-left:auto;font-size:.85rem;color:var(--muted)}.live::before{content:'';display:inline-block;width:.5rem;height:.5rem;border-radius:50%;background:var(--tool);margin-right:.4rem}
 .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.7rem 1rem;margin:0 0 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:.8rem 1rem}
 .meta div{min-width:0}
 .meta .wide{grid-column:span 2}
@@ -159,6 +160,15 @@ function reveal(){var id=location.hash.slice(1);var el=id&&document.getElementBy
 addEventListener('hashchange',reveal);reveal();
 document.querySelectorAll('[data-toggle]').forEach(function(b){b.addEventListener('click',function(){var open=b.dataset.toggle==='open';document.querySelectorAll('details.tool').forEach(function(d){d.open=open;});});});
 document.querySelectorAll('select[data-autosubmit]').forEach(function(s){s.addEventListener('change',function(){s.form.submit();});});
+function detailsByKey(){var n={},m={};document.querySelectorAll('#main details').forEach(function(d){var k=(d.dataset.ts||'')+'/';n[k]=(n[k]||0)+1;m[k+n[k]]=d;});return m;}
+function swap(html,live){var doc=new DOMParser().parseFromString(html,'text/html');var root=document.documentElement;var atEnd=innerHeight+scrollY>=root.scrollHeight-80;
+var was={},k,old=detailsByKey();for(k in old)was[k]=old[k].open;
+['live-head','live-tx'].forEach(function(id){var a=document.getElementById(id),b=doc.getElementById(id);if(a&&b)a.replaceWith(document.adoptNode(b));});
+var now=detailsByKey();for(k in now)if(k in was)now[k].open=was[k];
+live.textContent='Live: updated '+new Date().toLocaleTimeString();if(atEnd)scrollTo(0,root.scrollHeight);}
+var live=document.querySelector('[data-live]');
+if(live){var etag=live.dataset.live,busy=false;setInterval(function(){if(busy||document.hidden)return;busy=true;
+fetch(location.pathname,{headers:{'If-None-Match':etag},cache:'no-store'}).then(function(r){if(r.status!==200)return;etag=r.headers.get('ETag')||etag;return r.text().then(function(t){swap(t,live);});}).catch(function(){}).then(function(){busy=false;});},2000);}
 `;
 
 const LOGO = `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M13 13l5 5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M5.5 9.5h1.6l1-2.5 1.4 4 1-1.5h1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
@@ -278,11 +288,17 @@ ${field('Estimated cost', costText(st))}${field('Tool calls', String(st.tools))}
 <div class="wide"><dt>Session id</dt><dd><code>${esc(s.id)}</code></dd></div></dl>`;
 }
 
-export function sessionPage(s: Session, st: SessionStats): string {
+/** A session active this recently is probably still running: its page follows the log as it grows. */
+export const LIVE_MS = 60 * 60_000;
+
+export function sessionPage(s: Session, st: SessionStats, etag?: string): string {
+  const live = etag && Date.now() - s.end < LIVE_MS ? `<span class="live" data-live="${esc(etag)}">Live: new activity shows up here</span>` : '';
   const toolbar = `<div class="toolbar"><button type="button" data-toggle="open">Expand all tool calls</button><button type="button" data-toggle="close">Collapse all</button>
 <form method="get" action="${href(s)}/export"><label>Export <select name="format"><option value="md">Markdown</option><option value="html">HTML</option></select></label>
-<label><input type="checkbox" name="redact" value="1" checked> Redact paths and secrets</label><button>Download</button></form></div>`;
-  return page(s.title, sessionHeader(s, st) + toolbar + transcript(s, { clip: 40_000, link: true }), 'session');
+<label><input type="checkbox" name="redact" value="1" checked> Redact paths and secrets</label><button>Download</button></form>${live}</div>`;
+  // live-head and live-tx are the parts app.js swaps when the log grows; it keeps each <details>
+  // open or closed by its data-ts (the log's timestamp, which stays put when lines are added, unlike item numbers).
+  return page(s.title, `<div id="live-head">${sessionHeader(s, st)}</div>${toolbar}<div id="live-tx">${transcript(s, { clip: 40_000, link: true })}</div>`, 'session');
 }
 
 export function exportHtml(s: Session, st: SessionStats): string {
@@ -343,17 +359,17 @@ function body(it: Item, ctx: Ctx): string {
     case 'assistant':
       return `<div class="role">Assistant${it.error ? ' · API error' : ''}</div><div class="msg md">${clipMd(it.text, max)}</div>`;
     case 'thinking':
-      return `<details class="quiet"><summary>Thinking</summary><div class="msg">${clip(it.text, max)}</div></details>`;
+      return `<details class="quiet" data-ts="${it.ts}"><summary>Thinking</summary><div class="msg">${clip(it.text, max)}</div></details>`;
     case 'system':
       return `<div class="msg">${clip(it.text, max)}</div>`;
     case 'raw':
-      return `<details class="quiet"><summary>${esc(it.label)}</summary><pre>${clip(it.json, max)}</pre></details>`;
+      return `<details class="quiet" data-ts="${it.ts}"><summary>${esc(it.label)}</summary><pre>${clip(it.json, max)}</pre></details>`;
     case 'tool': {
       const w = it.durationMs === undefined ? 0 : Math.max(2, Math.round(56 * Math.sqrt(it.durationMs / ctx.maxMs)));
       const dur = it.durationMs === undefined ? '' : `<span class="dur"><span class="bar" style="width:${w}px"></span>${fmtDuration(it.durationMs)}</span>`;
       const output =
         it.output === undefined ? `<div class="lbl">Output</div><p class="muted">No result was recorded.</p>` : `<div class="lbl">Output${it.isError ? ' (error)' : ''}</div><pre class="out">${clip(it.output, max)}</pre>`;
-      return `<details class="tool${it.isError ? ' error' : ''}"><summary><span class="tname">${esc(it.name)}</span><span class="targ">${esc(toolLabel(it.input))}</span>${it.isError ? '<span class="flag">error</span>' : ''}${dur}</summary>
+      return `<details class="tool${it.isError ? ' error' : ''}" data-ts="${it.ts}"><summary><span class="tname">${esc(it.name)}</span><span class="targ">${esc(toolLabel(it.input))}</span>${it.isError ? '<span class="flag">error</span>' : ''}${dur}</summary>
 <div class="io"><div class="lbl">Input</div><pre>${clip(pretty(it.input), max)}</pre>${output}${it.subagent ? subagent(it.subagent, ctx) : ''}</div></details>`;
     }
   }

@@ -37,6 +37,11 @@ export class Store {
       .filter((s) => s.items.length || s.orphanSubagents.length || s.usage.length) // drops e.g. files holding only summary lines
       .sort((a, b) => b.start - a.start);
   }
+
+  /** Size and mtime of a session's files as of the last sessions() call: changes whenever the session does. */
+  signatureOf(s: Session): string | undefined {
+    return this.cache.get(s.file)?.sig;
+  }
 }
 
 function signature(path: string): string {
