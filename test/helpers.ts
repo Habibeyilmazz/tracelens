@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { Store } from '../src/store.js';
 
 export const FIXTURES = fileURLToPath(new URL('../../test/fixtures/projects', import.meta.url));
+export const CODEX_FIXTURES = fileURLToPath(new URL('../../test/fixtures/codex', import.meta.url));
+export const C = '33333333-cccc-4ccc-8ccc-333333333333';
+export const D = '44444444-dddd-4ddd-8ddd-444444444444';
 export const A = '11111111-aaaa-4aaa-8aaa-111111111111';
 export const B = '22222222-bbbb-4bbb-8bbb-222222222222';
 

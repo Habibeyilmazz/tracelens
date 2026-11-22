@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { A, B, duplicateIdDir, FIXTURES } from './helpers.js';
+import { A, B, C, CODEX_FIXTURES, duplicateIdDir, FIXTURES } from './helpers.js';
 
 const CLI = fileURLToPath(new URL('../src/cli.js', import.meta.url));
-const run = (...args: string[]) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });
+// CODEX_HOME points at an empty folder: tests must never read a real ~/.codex on the machine running them.
+const env = { ...process.env, CODEX_HOME: join(tmpdir(), 'tracelens-no-codex-home') };
+const run = (...args: string[]) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', env });
 
 test('help and version', () => {
   assert.match(run('--help').stdout, /tracelens serve/);
@@ -48,7 +50,7 @@ test('export refuses to write into the log folder and leaves logs untouched', ()
   const before = statSync(log).mtimeMs;
   const r = run('export', A, '--dir', FIXTURES, '-o', join(FIXTURES, 'out.md'));
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /refusing to write inside the log folder/);
+  assert.match(r.stderr, /refusing to write inside a log folder/);
   // a log opened by path, outside --dir, is protected too
   const self = run('export', log, '--dir', tmpdir(), '-o', log);
   assert.equal(self.status, 1);
@@ -83,4 +85,22 @@ test('export refuses an id that is in two project folders and names both files',
   } finally {
     rmSync(dir, { recursive: true });
   }
+});
+
+test('Codex sessions: listed with --codex-dir, exported by id or by rollout path, log folder protected', () => {
+  const l = run('list', '--dir', FIXTURES, '--codex-dir', CODEX_FIXTURES);
+  assert.equal(l.status, 0, l.stderr);
+  assert.ok(l.stdout.includes(C) && l.stdout.includes(A));
+  const byId = run('export', '3333', '--dir', FIXTURES, '--codex-dir', CODEX_FIXTURES);
+  assert.equal(byId.status, 0, byId.stderr);
+  assert.match(byId.stdout, /^# Invoice totals are off by a cent/);
+  const rollout = join(CODEX_FIXTURES, '2026', '11', '19', `rollout-2026-11-19T09-00-00-${C}.jsonl`);
+  const byPath = run('export', rollout, '--format', 'html');
+  assert.equal(byPath.status, 0, byPath.stderr);
+  assert.match(byPath.stdout, /<dt>Agent<\/dt><dd>Codex<\/dd>/);
+  const before = statSync(rollout).mtimeMs;
+  const w = run('export', C, '--dir', FIXTURES, '--codex-dir', CODEX_FIXTURES, '-o', join(CODEX_FIXTURES, '2026', 'out.md'));
+  assert.equal(w.status, 1);
+  assert.match(w.stderr, /refusing to write inside a log folder/);
+  assert.equal(statSync(rollout).mtimeMs, before);
 });

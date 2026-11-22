@@ -1,17 +1,23 @@
 import { statSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
 import { discover, parseSession } from './claude.js';
+import { discoverCodex, parseCodex } from './codex.js';
 import type { Session } from './types.js';
 
 /** Keeps parsed sessions in memory and re-parses only files whose size or mtime changed. */
 export class Store {
   private cache = new Map<string, { sig: string; session: Session }>();
 
-  constructor(readonly dir: string) {}
+  /** dir: Claude Code projects folder. codexDir: Codex CLI sessions folder, if any. */
+  constructor(readonly dir: string, readonly codexDir?: string) {}
 
   sessions(): Session[] {
     const next = new Map<string, { sig: string; session: Session }>();
-    for (const files of discover(this.dir)) {
+    const found = [
+      ...discover(this.dir).map((files) => ({ files, parse: parseSession })),
+      ...(this.codexDir ? discoverCodex(this.codexDir).map((files) => ({ files, parse: parseCodex })) : []),
+    ];
+    for (const { files, parse } of found) {
       const sig = [files.main, ...files.subagents].map(signature).join('|');
       const hit = this.cache.get(files.main);
       if (hit && hit.sig === sig) {
@@ -19,7 +25,7 @@ export class Store {
         continue;
       }
       try {
-        next.set(files.main, { sig, session: parseSession(files) });
+        next.set(files.main, { sig, session: parse(files) });
       } catch (err) {
         // A file vanishing or being unreadable mid-scan must not take the UI down.
         console.warn(`tracelens: skipped ${files.main}: ${(err as Error).message}`);

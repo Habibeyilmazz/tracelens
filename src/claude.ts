@@ -94,13 +94,13 @@ function firstRecord(path: string): Rec | undefined {
   }
 }
 
-interface Line {
+export interface Line {
   rec?: Rec;
   raw: string;
   lineNo: number;
 }
 
-function readLines(path: string): Line[] {
+export function readLines(path: string): Line[] {
   const out: Line[] = [];
   readFileSync(path, 'utf8')
     .split('\n')
@@ -128,7 +128,7 @@ export function textOf(content: unknown): string {
   return JSON.stringify(content, null, 2);
 }
 
-const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+export const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
 
 export function toUsage(u: Rec): Usage {
   const cacheWrite = num(u?.cache_creation_input_tokens);

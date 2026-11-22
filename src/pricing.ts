@@ -37,13 +37,13 @@ export function parsePricing(data: any, where = 'pricing'): Pricing {
   return out;
 }
 
-/** The longest pricing key that appears in the model id as a whole token
- *  ("claude-opus-4" prices "claude-opus-4-20250514" but not "claude-opus-4-1-…"). */
+/** The longest pricing key that appears in the model id as a whole token ("claude-opus-4" prices
+ *  "claude-opus-4-20250514" but not "claude-opus-4-1-…", and "gpt-5" prices "gpt-5-codex" but not "gpt-5.2"). */
 export function ratesFor(pricing: Pricing, model: string): Rates | undefined {
   let best: string | undefined;
   for (const key of Object.keys(pricing)) {
     const i = model.indexOf(key);
-    if (i < 0 || /[a-z0-9]/i.test(model[i + key.length] ?? '')) continue;
+    if (i < 0 || /^(?:[a-z0-9]|\.\d)/i.test(model.slice(i + key.length))) continue;
     if (!best || key.length > best.length) best = key;
   }
   return best ? pricing[best] : undefined;

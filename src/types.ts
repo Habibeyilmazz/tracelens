@@ -1,4 +1,4 @@
-// The normalized session model. Every log adapter (today: Claude Code) produces these;
+// The normalized session model. Every log adapter (Claude Code, Codex CLI) produces these;
 // the UI, insights, search and export only ever read this shape.
 
 export interface Usage {
@@ -43,7 +43,7 @@ export interface Subagent {
 
 export interface Session {
   id: string;
-  source: 'claude-code';
+  source: 'claude-code' | 'codex';
   file: string;
   project: string; // working directory the agent ran in
   title: string;

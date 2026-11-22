@@ -48,16 +48,28 @@ export const oneLine = (s: string, max = 120) => {
 };
 
 export const shortModel = (m: string) => m.replace(/^claude-/, '').replace(/-\d{8}$/, '');
+export const agentName = (source: string) => (source === 'codex' ? 'Codex' : 'Claude Code');
 export const shortPath = (p: string) => p.split(/[\\/]/).filter(Boolean).slice(-2).join('/') || p;
+
+/** Files named in a Codex apply_patch envelope, with what happens to each. */
+export const patchFiles = (patch: string) =>
+  [...patch.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)].map((m) => ({ op: m[1], path: m[2].trim() }));
+
+const label = (s: string) =>
+  oneLine(s.startsWith('*** Begin Patch') ? patchFiles(s).map((f) => `${f.op} ${f.path}`).join(', ') || s : s);
 
 /** The one argument that best describes a tool call (command, path, pattern, …). */
 export function toolLabel(input: unknown): string {
-  if (typeof input === 'string') return oneLine(input);
+  if (typeof input === 'string') return label(input);
   const i = (input ?? {}) as Record<string, unknown>;
-  for (const k of ['command', 'file_path', 'notebook_path', 'pattern', 'url', 'query', 'description', 'prompt', 'path'])
-    if (typeof i[k] === 'string' && i[k]) return oneLine(i[k] as string);
+  // Codex shell calls pass argv, usually ["bash", "-lc", "<script>"].
+  const argv = i.command;
+  if (Array.isArray(argv) && argv.length && argv.every((a) => typeof a === 'string'))
+    return label(argv.length === 3 && /^-l?c$/.test(argv[1]) ? argv[2] : argv.join(' '));
+  for (const k of ['command', 'cmd', 'file_path', 'notebook_path', 'pattern', 'url', 'query', 'description', 'prompt', 'path'])
+    if (typeof i[k] === 'string' && i[k]) return label(i[k] as string);
   const first = Object.values(i).find((v) => typeof v === 'string' && v);
-  return typeof first === 'string' ? oneLine(first) : '';
+  return typeof first === 'string' ? label(first) : '';
 }
 
 export const pretty = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2) ?? '');

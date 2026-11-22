@@ -1,7 +1,7 @@
 // Server-side HTML for the web UI and the self-contained HTML export.
 // Everything that comes from a log file goes through esc(): transcripts are untrusted input.
 
-import { esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
+import { agentName, esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
 import type { Insights, Row, SessionStats } from './insights.js';
 import type { Hit } from './search.js';
 import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
@@ -63,6 +63,7 @@ td.title a{color:var(--ink);text-decoration:none;font-weight:550}
 td.title a:hover{text-decoration:underline}
 .sub-line{color:var(--muted);font-size:.83rem;overflow-wrap:anywhere}
 .chip{display:inline-block;font-size:.78rem;padding:0 .4rem;border-radius:4px;border:1px solid var(--rule);margin:0 .2rem .15rem 0;white-space:nowrap}
+.chip.agent{border-color:var(--tool);color:var(--tool)}
 .bad{color:var(--err);font-weight:600}
 code,.mono{font-family:var(--mono);font-size:.86em}
 .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.7rem 1rem;margin:0 0 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:.8rem 1rem}
@@ -191,6 +192,7 @@ export interface ListQuery {
   project?: string;
   sort: string;
   dir: string;
+  codexDir?: string;
 }
 
 export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects: string[], q: ListQuery): string {
@@ -201,7 +203,7 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
       : `<th${cls}><a href="/${qs({ project: q.project, sort: key })}">${label}</a></th>`;
   const body = rows
     .map(({ s, st }) => {
-      const sub = [esc(shortPath(s.project)), ...s.models.map((m) => `<span class="chip">${esc(shortModel(m))}</span>`)].join(' ');
+      const sub = [esc(shortPath(s.project)), ...(s.source === 'codex' ? ['<span class="chip agent">Codex</span>'] : []), ...s.models.map((m) => `<span class="chip">${esc(shortModel(m))}</span>`)].join(' ');
       return `<tr><td class="nowrap when">${fmtDate(s.start)}</td>
 <td class="title"><a href="${href(s)}">${esc(s.title)}</a><div class="sub-line" title="${esc(s.project)}">${sub}</div></td>
 <td class="num" data-label="Duration">${fmtDuration(s.end - s.start)}</td>${tokensCell(st.usage)}<td class="num" data-label="Cost">${costText(st)}</td>
@@ -211,7 +213,7 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
   const options = projects.map((p) => `<option value="${esc(p)}"${p === q.project ? ' selected' : ''}>${esc(p)}</option>`).join('');
   const empty = q.project
     ? `<p class="empty">No sessions for this project.</p>`
-    : `<div class="empty"><p>No Claude Code sessions found in <code>${esc(q.dir)}</code>.</p><p class="muted">Point tracelens at another folder with <code>tracelens serve --dir &lt;path&gt;</code>, or try the demo data: <code>npm run demo</code>.</p></div>`;
+    : `<div class="empty"><p>No sessions found in <code>${esc(q.dir)}</code> (Claude Code)${q.codexDir ? ` or <code>${esc(q.codexDir)}</code> (Codex CLI)` : ''}.</p><p class="muted">Point tracelens at other folders with <code>tracelens serve --dir &lt;path&gt; --codex-dir &lt;path&gt;</code>, or try the demo data: <code>npm run demo</code>.</p></div>`;
   return page(
     'Sessions',
     `<h1>Sessions <span class="muted">${rows.length}</span></h1>
@@ -267,7 +269,7 @@ function sessionHeader(s: Session, st: SessionStats): string {
   const u = st.usage;
   const field = (k: string, v: string) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
   return `<h1>${esc(s.title)}</h1><dl class="meta">
-${field('Project', `<span title="${esc(s.project)}">${esc(shortPath(s.project))}</span>`)}
+${field('Project', `<span title="${esc(s.project)}">${esc(shortPath(s.project))}</span>`)}${field('Agent', agentName(s.source))}
 ${field('Started', fmtDate(s.start))}${field('Duration', fmtDuration(s.end - s.start))}
 ${field('Models', s.models.map((m) => esc(shortModel(m))).join(', ') || '—')}
 ${field('Tokens in / out', `${fmtTokens(u.input)} / ${fmtTokens(u.output)}`)}
@@ -455,6 +457,6 @@ ${
 <h2>By model</h2><p class="muted">Sorted by estimated cost</p>${usageTable(ins.byModel, 'Model', (r) => `<code>${esc(r.key)}</code>`)}
 <div class="cols"><section><h2>Most-used tools</h2><p class="muted">Including tool calls made by subagents</p>${toolsTable}</section>
 <section><h2>Slowest tool calls</h2><p class="muted">Time from the call to its result</p>${slowTable}</section></div>
-<h2>Files edited most often</h2><p class="muted">Successful Edit, MultiEdit, Write and NotebookEdit calls</p>${filesTable}`;
+<h2>Files edited most often</h2><p class="muted">Successful Edit, MultiEdit, Write and NotebookEdit calls, and Codex apply_patch</p>${filesTable}`;
   return page('Insights', body, 'insights');
 }

@@ -1,0 +1,7 @@
+{"id": "44444444-dddd-4ddd-8ddd-444444444444", "timestamp": "2025-08-01T10:00:00.000Z", "instructions": null, "git": null}
+{"record_type": "state"}
+{"type": "message", "role": "user", "content": [{"type": "input_text", "text": "List the files in this folder"}]}
+{"type": "function_call", "name": "shell", "arguments": "{\"command\": [\"ls\"]}", "call_id": "c1"}
+{"type": "function_call_output", "call_id": "c1", "output": "{\"output\": \"README.md\\nsrc\\n\", \"metadata\": {\"exit_code\": 0, \"duration_seconds\": 0.1}}"}
+{"record_type": "state"}
+{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Two entries: README.md and src."}]}

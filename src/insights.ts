@@ -1,3 +1,5 @@
+import { isAbsolute, join } from 'node:path';
+import { patchFiles } from './format.js';
 import { costOf, type Pricing } from './pricing.js';
 import { addUsage, emptyUsage, isErrorItem, sessionItems, totalTokens, type Session, type ToolCall, type Usage } from './types.js';
 
@@ -10,11 +12,24 @@ export const dayKey = (ts: number) => {
 
 export const EDIT_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit']);
 
-export function editedPath(call: ToolCall): string | undefined {
-  if (!EDIT_TOOLS.has(call.name) || call.isError || call.output === undefined) return undefined;
+/** Files a successful edit call wrote: Claude Code's Edit/Write tools, or a Codex apply_patch
+ *  (relative patch paths are resolved against the session's working directory). */
+export function editedPaths(call: ToolCall, cwd: string): string[] {
+  if (call.isError || call.output === undefined) return [];
   const input = call.input as any;
-  const p = input?.file_path ?? input?.notebook_path;
-  return typeof p === 'string' ? p : undefined;
+  if (EDIT_TOOLS.has(call.name)) {
+    const p = input?.file_path ?? input?.notebook_path;
+    return typeof p === 'string' ? [p] : [];
+  }
+  // Codex: a custom tool call with the patch as its input, or (older) a function call / shell argv carrying it.
+  const patch =
+    call.name === 'apply_patch' ? (typeof input === 'string' ? input : input?.input)
+    : Array.isArray(input?.command) && input.command[0] === 'apply_patch' ? input.command[1]
+    : undefined;
+  if (typeof patch !== 'string') return [];
+  return patchFiles(patch)
+    .filter((f) => f.op !== 'Delete')
+    .map((f) => (isAbsolute(f.path) ? f.path : join(cwd, f.path)));
 }
 
 export interface SessionStats {
@@ -126,8 +141,7 @@ export function computeInsights(all: Session[], pricing: Pricing, opts: InsightO
         t.maxMs = Math.max(t.maxMs, it.durationMs);
         timed.push({ session: s, call: it });
       }
-      const path = editedPath(it);
-      if (path) {
+      for (const path of editedPaths(it, s.project)) {
         let f = files.get(path);
         if (!f) files.set(path, (f = { edits: 0, ids: new Set() }));
         f.edits++;

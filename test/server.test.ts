@@ -8,14 +8,14 @@ import type { Server } from 'node:http';
 import { loadPricing } from '../src/pricing.js';
 import { listen } from '../src/server.js';
 import { Store } from '../src/store.js';
-import { A, duplicateIdDir, FIXTURES } from './helpers.js';
+import { A, C, CODEX_FIXTURES, duplicateIdDir, FIXTURES } from './helpers.js';
 
 const PORT = 4187;
 const SA = `/session/-Users-dev-acme-api/${A}`;
 let server: Server;
 
 before(async () => {
-  server = await listen(new Store(FIXTURES), loadPricing(), PORT);
+  server = await listen(new Store(FIXTURES, CODEX_FIXTURES), loadPricing(), PORT);
 });
 after(() => server.close());
 
@@ -80,6 +80,21 @@ test('session view shows tools, errors, subagents and raw events', async () => {
   assert.ok(!r.body.includes('file-history-snapshot'), 'checkpoint bookkeeping is not shown');
   assert.equal((await get('/session/-Users-dev-acme-api/does-not-exist')).status, 404);
   assert.equal((await get('/session/x/%E0%A4%A')).status, 400);
+});
+
+test('Codex sessions are listed, marked, readable and exportable', async () => {
+  const list = (await get('/')).body;
+  const link = `/session/19/${C}`;
+  assert.ok(list.includes(`href="${link}"`));
+  assert.match(list, /<span class="chip agent">Codex<\/span>/);
+  const r = await get(link);
+  assert.equal(r.status, 200);
+  for (const s of ['<dt>Agent</dt><dd>Codex</dd>', 'class="tname">apply_patch<', 'Update src/invoice.ts, Add test/invoice-rounding.test.ts', 'class="flag">error<', 'Context added by Codex: environment_context', '<strong>cents</strong>'])
+    assert.ok(r.body.includes(s), `missing ${s}`);
+  const md = await get(`${link}/export?format=md&redact=1`);
+  assert.match(md.body, /^- Agent: Codex$/m);
+  assert.ok(!md.body.includes('/Users/dev'));
+  assert.match((await get('/insights')).body, /gpt-5\.1-codex/);
 });
 
 test('search highlights matches and escapes the query', async () => {

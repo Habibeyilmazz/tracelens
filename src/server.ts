@@ -63,7 +63,7 @@ export function createHandler(store: Store, pricing: Pricing) {
           .filter((s) => !project || s.project === project)
           .sort((a, b) => key[sort](b) - key[sort](a))
           .map((s) => ({ s, st: stats(s) }));
-        return send(200, sessionsPage(rows, projects, { project, sort, dir: store.dir }));
+        return send(200, sessionsPage(rows, projects, { project, sort, dir: store.dir, codexDir: store.codexDir }));
       }
 
       if (path === '/search') {

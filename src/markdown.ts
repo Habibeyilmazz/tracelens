@@ -1,4 +1,4 @@
-import { fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, toolLabel } from './format.js';
+import { agentName, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, toolLabel } from './format.js';
 import type { SessionStats } from './insights.js';
 import type { Item, Session, Subagent } from './types.js';
 
@@ -19,6 +19,7 @@ export function exportMarkdown(s: Session, st: SessionStats): string {
     `# ${oneLine(s.title, 200)}`,
     '',
     `- Project: \`${s.project}\``,
+    `- Agent: ${agentName(s.source)}`,
     `- Session: \`${s.id}\``,
     `- Started: ${fmtDate(s.start)} (duration ${fmtDuration(s.end - s.start)})`,
     `- Models: ${s.models.map(shortModel).join(', ') || 'none recorded'}`,
