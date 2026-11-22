@@ -2,7 +2,7 @@
 // laid out as YYYY/MM/DD/rollout-<time>-<uuid>.jsonl) and turns their records into Sessions.
 // Files are only ever opened for reading.
 
-import { readdirSync } from 'node:fs';
+import { readdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { num, parseTs, readLines, tooDeep, type SessionFiles } from './claude.js';
 import { cut } from './format.js';
@@ -21,16 +21,23 @@ export function discoverCodex(dir: string): SessionFiles[] {
   );
 }
 
-// Not readdirSync's recursive mode: it follows symlinked folders, so a link back up (2026/up -> ..) listed
-// every session dozens of times. Like the Claude Code adapter, only real folders and files count.
-function rollouts(dir: string): string[] {
+// Not readdirSync's recursive mode: it follows a symlink back up (2026/up -> ..) round and round, which listed
+// every session dozens of times. Symlinked folders are still read (a year moved to another disk), each once.
+function rollouts(dir: string, seen = new Set<string>()): string[] {
   let entries;
   try {
+    const real = realpathSync(dir);
+    if (seen.has(real)) return [];
+    seen.add(real);
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
     return [];
   }
-  return entries.flatMap((e) => (e.isDirectory() ? rollouts(join(dir, e.name)) : e.isFile() && isRollout(e.name) ? [join(dir, e.name)] : []));
+  return entries.flatMap((e) => {
+    const path = join(dir, e.name);
+    if (isRollout(e.name) && (e.isFile() || e.isSymbolicLink())) return [path];
+    return e.isDirectory() || e.isSymbolicLink() ? rollouts(path, seen) : [];
+  });
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;

@@ -285,14 +285,18 @@ test('archived Codex sessions (archived_sessions next to sessions/) are read too
   }
 });
 
-test('a symlinked folder inside the sessions folder is not followed (a link back up listed each session 33 times)', () => {
+test('symlinked folders in the sessions folder are read once: a link back up listed each session 33 times', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tracelens-codex-loop-'));
   try {
     const name = `rollout-2026-11-19T09-00-00-${C}.jsonl`;
-    mkdirSync(join(dir, '2026'));
-    copyFileSync(join(CODEX_FIXTURES, '2026', '11', '19', name), join(dir, '2026', name));
-    symlinkSync('..', join(dir, '2026', 'up'));
-    assert.deepEqual(discoverCodex(dir).map((f) => f.main), [join(dir, '2026', name)]);
+    const old = `rollout-2025-08-01T10-00-00-${D}.jsonl`;
+    mkdirSync(join(dir, 'sessions', '2026'), { recursive: true });
+    mkdirSync(join(dir, 'elsewhere'));
+    copyFileSync(join(CODEX_FIXTURES, '2026', '11', '19', name), join(dir, 'sessions', '2026', name));
+    copyFileSync(join(CODEX_FIXTURES, '2025', '08', '01', old), join(dir, 'elsewhere', old));
+    symlinkSync('..', join(dir, 'sessions', '2026', 'up')); // a loop
+    symlinkSync(join(dir, 'elsewhere'), join(dir, 'sessions', '2025')); // a year kept on another disk: still read
+    assert.deepEqual(discoverCodex(join(dir, 'sessions')).map((f) => f.id), [D, C]);
   } finally {
     rmSync(dir, { recursive: true });
   }
