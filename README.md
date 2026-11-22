@@ -85,7 +85,7 @@ Other tools cover parts of this, and some are a better fit (as of November 2026;
 
 ## Cost estimates
 
-Token counts come straight from the logs. Cost is an **estimate**: tokens multiplied by the list prices in [`pricing.json`](pricing.json), in USD per million tokens, with separate rates for input, output, 5-minute and 1-hour cache writes and cache reads. A model id is priced by the longest key it contains, so `claude-sonnet-4-5` also prices `claude-sonnet-4-5-20250929`. Models without a price are counted in tokens and listed as "not priced". Rates are flat per model, so a model with a higher price for very long prompts (Claude Haiku 5.5 above 100K tokens, OpenAI's gpt-5.4 and later above 272K) is estimated at its base rate.
+Token counts come straight from the logs. Cost is an **estimate**: tokens multiplied by the list prices in [`pricing.json`](pricing.json), in USD per million tokens, with separate rates for input, output, 5-minute and 1-hour cache writes and cache reads. A model id is priced by the longest key it contains, so `claude-sonnet-4-5` also prices `claude-sonnet-4-5-20250929`. Models without a price are counted in tokens and listed as "not priced". Some models cost more per token for very long prompts: Claude Haiku 5.5 above 100,000 tokens, and OpenAI's gpt-5.4 and later above 272K. A model row can carry a `longContext` block with those rates and its threshold (`above`); a request whose prompt (input plus cache writes and cache reads) is over it is priced entirely at the higher rates, as both providers bill it. Claude Code logs usage per request, so this is exact there. Codex logs a running total, so tracelens decides the tier from the size of the last request in each step (`last_token_usage`).
 
 OpenAI models (used by Codex) are in the same file: `input` is the uncached input rate, `cacheRead` the cached-input rate, and the cache-write rates are 0 because OpenAI does not charge for them. Codex logs count cached tokens inside the input total and reasoning tokens inside the output total; tracelens splits the cached part out and prices reasoning as output, as OpenAI bills it. A version suffix never borrows another version's price: `gpt-5` prices `gpt-5-codex` but not `gpt-5.2`, and a variant without its own row (such as `gpt-5.1-codex-max`) is priced as its base model (`gpt-5.1`), so add a row if its price differs.
 
@@ -141,7 +141,6 @@ Ideas, not promises:
 - Show rewound or edited conversation branches as a tree instead of file order.
 - A search index for very large histories (search is a linear scan over sessions held in memory today).
 - Read session files over 2 GB by streaming them (they are skipped with a warning today).
-- Model long-context price tiers (rates are flat per model today, see [Cost estimates](#cost-estimates)).
 - CSV export of the insights tables.
 - Publish as an npm package so `npx tracelens serve` works without cloning.
 

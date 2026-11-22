@@ -208,7 +208,8 @@ export function parseCodex(files: SessionFiles): Session {
         if (total) prevTotal = total;
         if (!u || !(u.input || u.output)) continue;
         // OpenAI counts cached tokens inside input_tokens, and reasoning tokens inside output_tokens.
-        usage.push({ ts, model, usage: { input: Math.max(0, u.input - u.cached), output: u.output, cacheWrite: 0, cacheWrite1h: 0, cacheRead: Math.min(u.cached, u.input) } });
+        // The long-prompt price tier depends on one request's prompt: a delta can span several requests, last_token_usage cannot.
+        usage.push({ ts, model, usage: { input: Math.max(0, u.input - u.cached), output: u.output, cacheWrite: 0, cacheWrite1h: 0, cacheRead: Math.min(u.cached, u.input) }, ...(lastResp && { prompt: lastResp.input }) });
       } else if (p.type === 'exec_command_end' || p.type === 'patch_apply_end') {
         if (typeof p.call_id === 'string' && (p.success === false || (typeof p.exit_code === 'number' && p.exit_code !== 0))) failedIds.add(p.call_id);
       } else if (p.type === 'error') note(typeof p.message === 'string' ? p.message : 'Error', true);

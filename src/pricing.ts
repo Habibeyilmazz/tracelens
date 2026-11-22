@@ -8,6 +8,8 @@ export interface Rates {
   cacheWrite: number;
   cacheWrite1h: number;
   cacheRead: number;
+  /** Rates for a request whose prompt (input + cache writes + cache reads) is over `above` tokens. */
+  longContext?: Omit<Rates, 'longContext'> & { above: number };
 }
 export type Pricing = Record<string, Rates>;
 
@@ -29,10 +31,18 @@ export function parsePricing(data: any, where = 'pricing'): Pricing {
   const models = data?.models;
   if (!models || typeof models !== 'object' || Array.isArray(models)) throw new Error(`${where}: expected an object with a "models" map`);
   const out: Pricing = {};
-  for (const [key, r] of Object.entries<any>(models)) {
+  const rates = (r: any, name: string): Rates => {
     for (const f of FIELDS)
-      if (typeof r?.[f] !== 'number' || !(r[f] >= 0)) throw new Error(`${where}: models["${key}"].${f} must be a non-negative number`);
-    out[key] = { input: r.input, output: r.output, cacheWrite: r.cacheWrite, cacheWrite1h: r.cacheWrite1h, cacheRead: r.cacheRead };
+      if (typeof r?.[f] !== 'number' || !(r[f] >= 0)) throw new Error(`${where}: ${name}.${f} must be a non-negative number`);
+    return { input: r.input, output: r.output, cacheWrite: r.cacheWrite, cacheWrite1h: r.cacheWrite1h, cacheRead: r.cacheRead };
+  };
+  for (const [key, r] of Object.entries<any>(models)) {
+    out[key] = rates(r, `models["${key}"]`);
+    const lc = r.longContext;
+    if (lc === undefined) continue;
+    const name = `models["${key}"].longContext`;
+    if (!Number.isInteger(lc?.above) || lc.above < 1) throw new Error(`${where}: ${name}.above must be a whole number of tokens`);
+    out[key].longContext = { above: lc.above, ...rates(lc, name) };
   }
   return out;
 }
@@ -49,10 +59,13 @@ export function ratesFor(pricing: Pricing, model: string): Rates | undefined {
   return best ? pricing[best] : undefined;
 }
 
-/** Estimated USD, or undefined when the model has no price. */
-export function costOf(pricing: Pricing, model: string, u: Usage): number | undefined {
-  const r = ratesFor(pricing, model);
-  if (!r) return undefined;
+/** Estimated USD for one request's usage, or undefined when the model has no price. */
+export function costOf(pricing: Pricing, model: string, u: Usage, prompt = u.input + u.cacheWrite + u.cacheRead): number | undefined {
+  const base = ratesFor(pricing, model);
+  if (!base) return undefined;
+  // Long-prompt tiers price the whole request at the higher rates; the prompt counts cached tokens too.
+  const lc = base.longContext;
+  const r = lc && prompt > lc.above ? lc : base;
   const cw5m = u.cacheWrite - u.cacheWrite1h;
   return (u.input * r.input + u.output * r.output + cw5m * r.cacheWrite + u.cacheWrite1h * r.cacheWrite1h + u.cacheRead * r.cacheRead) / 1e6;
 }

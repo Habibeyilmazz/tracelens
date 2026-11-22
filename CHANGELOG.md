@@ -12,11 +12,16 @@ All notable changes to this project are documented here. The format follows [Kee
 - Fixed before release, from a Codex review of the change: the new ETag was kept before the new page was read, so a body cut off mid-transfer left the page stale until the log changed again; and open/closed state was matched by timestamp alone, so a subagent step with the same timestamp as an open tool call could take over its state (keys are now per subagent).
 - Tests: a server test for the ETag/304/live marker, and an E2E test that appends to a session file while Chromium has it open and checks the new step appears, an opened tool call stays open, and a subagent step with the same timestamp does not take over its state (checked: with the open-state restore or the per-subagent key removed, it fails).
 
+### Added (round 7, long-prompt price tiers)
+
+- Cost estimates now apply long-prompt price tiers, a gap listed since round 4. A `pricing.json` row may have a `longContext` block (`above` plus the five rates); a request whose prompt (input + cache writes + cache reads) is over `above` tokens is priced entirely at those rates. Filled in: `claude-haiku-5-5` above 100,000 tokens (Anthropic's pricing page, checked 2026-11-22; other current Claude models bill the whole 1M window at base rates), and gpt-5.4, gpt-5.5, gpt-5.6-*, gpt-6-*, gpt-6.1-*, gpt-6.2-* above 272,000 tokens (OpenAI's pricing page, checked 2026-11-22; the page says ">272K" without defining K or what counts, so 272,000 input tokens including cached ones is an assumption). Invalid `longContext` blocks are rejected with the field name.
+- Codex: each usage step remembers the prompt size of its last request (`last_token_usage.input_tokens`), and the tier is decided from that, because one step's delta can cover several requests (two 200K requests are not one 400K prompt).
+
 ### Notes for the next person (round 7)
 
 - Not done: the session list and insights pages do not update by themselves (reload them). A line still being written shows as "Unreadable line" until the next poll completes it, which can now flash for 2 seconds on a live page. A session idle for over an hour is not live; reload once it becomes active again.
 - Each poll still calls `Store.sessions()`, which rescans every log folder (as every page load does). Fine for thousands of files; a store that stats only the session's own files would be the next step if it is ever slow.
-- Previous round's gaps, re-checked: none of them is a bug that can be fixed here. The Codex parser still has not seen a real rollout (agents here may not open real logs); long-context price tiers, streaming of files over 2 GiB and the initial-load `reveal()` in Chromium are unchanged; private vulnerability reporting is a repo setting left to the owner.
+- Previous round's gaps, re-checked: none of them is a bug that can be fixed here. The Codex parser still has not seen a real rollout (agents here may not open real logs); streaming of files over 2 GiB and the initial-load `reveal()` in Chromium are unchanged (long-context price tiers are now done, see above); private vulnerability reporting is a repo setting left to the owner.
 
 ### Added (round 6, launch pass)
 

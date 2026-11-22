@@ -48,7 +48,7 @@ export function sessionStats(s: Session, pricing: Pricing): SessionStats {
   let unpriced = false;
   for (const ev of s.usage) {
     usage = addUsage(usage, ev.usage);
-    const c = costOf(pricing, ev.model, ev.usage);
+    const c = costOf(pricing, ev.model, ev.usage, ev.prompt);
     if (c === undefined) unpriced ||= totalTokens(ev.usage) > 0;
     else cost += c;
   }
@@ -121,7 +121,7 @@ export function computeInsights(all: Session[], pricing: Pricing, opts: InsightO
   for (const s of sessions) {
     for (const ev of s.usage) {
       if (ev.ts < cutoff) continue;
-      const c = costOf(pricing, ev.model, ev.usage);
+      const c = costOf(pricing, ev.model, ev.usage, ev.prompt);
       if (c === undefined && totalTokens(ev.usage) > 0) unpriced.add(ev.model);
       usage = addUsage(usage, ev.usage);
       cost += c ?? 0;

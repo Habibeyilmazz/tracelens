@@ -6,7 +6,7 @@ import { search } from '../src/search.js';
 import { A, B, fixtureSessions } from './helpers.js';
 
 const pricing = loadPricing();
-const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
+const close = (a: number, b: number, msg = "") => assert.ok(Math.abs(a - b) < 1e-9, `${msg} ${a} != ${b}`);
 
 test('bundled pricing.json is valid and matches dated and prefixed model ids', () => {
   assert.equal(ratesFor(pricing, 'claude-sonnet-4-5-20250929'), pricing['claude-sonnet-4-5']);
@@ -24,7 +24,22 @@ test('cost uses separate rates for 5-minute and 1-hour cache writes', () => {
   assert.equal(costOf(p, 'other', { input: 1, output: 1, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0 }), undefined);
 });
 
+test('a long-prompt tier prices the whole request at its rates once the prompt, cache included, is over the threshold', () => {
+  const lc = { above: 100, input: 10, output: 20, cacheWrite: 30, cacheWrite1h: 40, cacheRead: 50 };
+  const p = parsePricing({ models: { m: { input: 1, output: 2, cacheWrite: 3, cacheWrite1h: 4, cacheRead: 5, longContext: lc } } });
+  const u = (input: number, cacheRead: number) => ({ input, output: 1e6, cacheWrite: 0, cacheWrite1h: 0, cacheRead });
+  close(costOf(p, 'm', u(60, 40))!, (60 * 1 + 40 * 5) / 1e6 + 2, 'exactly at the threshold: base rates');
+  close(costOf(p, 'm', u(60, 41))!, (60 * 10 + 41 * 50) / 1e6 + 20, 'cache reads count toward the prompt');
+  close(costOf(p, 'm', u(60, 41), 50)!, (60 * 1 + 41 * 5) / 1e6 + 2, 'a known per-request prompt size wins over the summed usage');
+  // Bundled table: Claude Haiku 5.5 above 100K-token prompts.
+  close(costOf(pricing, 'claude-haiku-5-5', { input: 1000, output: 1000, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 100_000 })!, (1000 * 0.5 + 1000 * 2.5 + 100_000 * 0.05) / 1e6);
+  close(costOf(pricing, 'claude-haiku-5-5', { input: 1000, output: 1000, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 99_000 })!, (1000 * 0.1 + 1000 * 0.5 + 99_000 * 0.01) / 1e6);
+});
+
 test('invalid pricing files are rejected with the offending field', () => {
+  const base = { input: 1, output: 1, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0 };
+  assert.throws(() => parsePricing({ models: { x: { ...base, longContext: { ...base, above: '200k' } } } }), /models\["x"\]\.longContext\.above/);
+  assert.throws(() => parsePricing({ models: { x: { ...base, longContext: { above: 5, input: 1 } } } }), /models\["x"\]\.longContext\.output/);
   assert.throws(() => parsePricing({}), /"models" map/);
   assert.throws(() => parsePricing({ models: { x: { input: 1, output: -1, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0 } } }), /models\["x"\]\.output/);
   assert.throws(() => loadPricing('/nonexistent/pricing.json'), /Cannot read pricing file/);

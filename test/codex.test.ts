@@ -129,6 +129,24 @@ test('a shrinking total (resumed session) falls back to the per-response numbers
   }
 });
 
+test('the long-context price tier follows one request\'s prompt (last_token_usage), not a multi-request delta', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-codex-'));
+  try {
+    const u = ([i, c, o]: number[]) => ({ input_tokens: i, cached_input_tokens: c, output_tokens: o });
+    const tc = (total: number[], last: number[]) => JSON.stringify({ timestamp: '2026-11-19T09:00:00.000Z', type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: u(total), last_token_usage: u(last) } } });
+    const file = join(dir, 'rollout-z.jsonl');
+    const ctx = JSON.stringify({ timestamp: '2026-11-19T09:00:00.000Z', type: 'turn_context', payload: { model: 'gpt-5.4' } });
+    // First delta: two 200K requests (400K together, each under 272K). Second: one 300K request.
+    writeFileSync(file, [ctx, tc([400_000, 0, 1000], [200_000, 0, 500]), tc([700_000, 0, 2000], [300_000, 0, 1000])].join('\n'));
+    const s = parseCodex({ id: 'z', main: file, subagents: [] });
+    assert.deepEqual(s.usage.map((e) => e.prompt), [200_000, 300_000]);
+    const st = sessionStats(s, pricing);
+    assert.ok(Math.abs(st.cost - ((400_000 * 2.5 + 1000 * 15) + (300_000 * 5 + 1000 * 22.5)) / 1e6) < 1e-9, String(st.cost));
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
 test('the pre-envelope rollout layout is read too', () => {
   const s = get(D);
   assert.equal(s.title, 'List the files in this folder');

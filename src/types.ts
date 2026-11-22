@@ -13,6 +13,7 @@ export interface UsageEvent {
   ts: number; // epoch ms
   model: string;
   usage: Usage;
+  prompt?: number; // tokens in one request's prompt, when the usage covers more than one request (Codex)
 }
 
 export type Item =
