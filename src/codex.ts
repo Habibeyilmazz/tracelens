@@ -3,7 +3,7 @@
 // Files are only ever opened for reading.
 
 import { readdirSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { num, parseTs, readLines, tooDeep, type SessionFiles } from './claude.js';
 import { cut } from './format.js';
 import type { Item, Session, ToolCall, UsageEvent } from './types.js';
@@ -12,17 +12,22 @@ type Rec = any; // JSONL records are untrusted, loosely-typed input
 
 export const isRollout = (path: string) => /^rollout-.*\.jsonl$/.test(basename(path));
 
+/** Codex moves archived threads to archived_sessions/, next to sessions/. */
+export const codexArchive = (dir: string) => (basename(dir) === 'sessions' ? join(dirname(dir), 'archived_sessions') : undefined);
+
 export function discoverCodex(dir: string): SessionFiles[] {
-  let names: string[];
-  try {
-    names = readdirSync(dir, { recursive: true, encoding: 'utf8' });
-  } catch {
-    return [];
-  }
-  return names
-    .filter(isRollout)
-    .sort()
-    .map((name) => ({ id: idFromName(name), main: join(dir, name), subagents: [] }));
+  return [dir, codexArchive(dir)].flatMap((d) => {
+    let names: string[];
+    try {
+      names = d ? readdirSync(d, { recursive: true, encoding: 'utf8' }) : [];
+    } catch {
+      return [];
+    }
+    return names
+      .filter(isRollout)
+      .sort()
+      .map((name) => ({ id: idFromName(name), main: join(d!, name), subagents: [] }));
+  });
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;

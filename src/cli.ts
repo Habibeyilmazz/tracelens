@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve, isAbsolute } from 'node:path';
 import { parseArgs } from 'node:util';
 import { filesForPath, parseSession } from './claude.js';
-import { isRollout, parseCodex } from './codex.js';
+import { codexArchive, isRollout, parseCodex } from './codex.js';
 import { fmtDate, fmtDuration, fmtUSD, oneLine, shortPath } from './format.js';
 import { sessionStats } from './insights.js';
 import { exportMarkdown } from './markdown.js';
@@ -35,7 +35,8 @@ Common options:
   --dir <path>          Claude Code projects folder (default: ~/.claude/projects,
                         or $CLAUDE_CONFIG_DIR/projects)
   --codex-dir <path>    Codex CLI sessions folder (default: ~/.codex/sessions,
-                        or $CODEX_HOME/sessions)
+                        or $CODEX_HOME/sessions); archived_sessions next to a
+                        folder named "sessions" is read too
   --pricing <file>      Pricing table for cost estimates (default: bundled pricing.json)
   -h, --help            Show this help
   -v, --version         Show the version
@@ -123,8 +124,9 @@ async function main(argv: string[]) {
       return rel && !rel.startsWith('..') && !isAbsolute(rel);
     };
     // A .jsonl target may live outside the log folders, so also refuse any .jsonl output (it could be that log or a subagent's).
-    if (/\.jsonl$/i.test(out) || inside(dir) || inside(codexDir))
-      throw new Error(`refusing to write inside a log folder (${dir}, ${codexDir}) or to a .jsonl file; choose another --output path`);
+    const logDirs = [dir, codexDir, codexArchive(codexDir)].filter((d): d is string => !!d);
+    if (/\.jsonl$/i.test(out) || logDirs.some(inside))
+      throw new Error(`refusing to write inside a log folder (${logDirs.join(', ')}) or to a .jsonl file; choose another --output path`);
     writeFileSync(out, text);
     console.error(`tracelens: wrote ${out}`);
     return;

@@ -19,7 +19,7 @@ npm run build
 node dist/src/cli.js serve
 ```
 
-This reads Claude Code transcripts from `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR/projects`) and Codex CLI sessions from `~/.codex/sessions` (or `$CODEX_HOME/sessions`), and opens <http://127.0.0.1:4180/>. A folder that does not exist is skipped.
+This reads Claude Code transcripts from `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR/projects`) and Codex CLI sessions from `~/.codex/sessions` and `~/.codex/archived_sessions` (or the same under `$CODEX_HOME`), and opens <http://127.0.0.1:4180/>. A folder that does not exist is skipped.
 
 No logs on this machine, or want to look first? `npm run demo` generates 25 made-up Claude Code sessions and 7 made-up Codex sessions into `.demo/` and serves those instead.
 
@@ -54,7 +54,8 @@ tracelens export <session> [options]        Write a transcript as Markdown or HT
   -o, --output <file>   Write to a file instead of stdout
   --redact              Replace home/project paths, emails and common secret patterns
   --dir <path>          Claude Code projects folder (default ~/.claude/projects)
-  --codex-dir <path>    Codex CLI sessions folder (default ~/.codex/sessions)
+  --codex-dir <path>    Codex CLI sessions folder (default ~/.codex/sessions);
+                        archived_sessions next to a folder named "sessions" is read too
   --pricing <file>      Pricing table for cost estimates
 ```
 
@@ -89,14 +90,14 @@ It is pattern matching, so read an export before you share it.
 
 ## How it works
 
-- **Discovery.** Claude Code keeps one JSONL file per session in `~/.claude/projects/<encoded-folder>/<session-id>.jsonl`. Subagent logs live either inline (records with `isSidechain: true`), in `<session-id>/subagents/*.jsonl`, or in `agent-*.jsonl` files next to the sessions. tracelens handles all three. Codex CLI writes one `rollout-<time>-<session-id>.jsonl` per session under `~/.codex/sessions/YYYY/MM/DD/`.
+- **Discovery.** Claude Code keeps one JSONL file per session in `~/.claude/projects/<encoded-folder>/<session-id>.jsonl`. Subagent logs live either inline (records with `isSidechain: true`), in `<session-id>/subagents/*.jsonl`, or in `agent-*.jsonl` files next to the sessions. tracelens handles all three. Codex CLI writes one `rollout-<time>-<session-id>.jsonl` per session under `~/.codex/sessions/YYYY/MM/DD/`, and moves archived ones to `~/.codex/archived_sessions/`; tracelens reads both.
 - **Parsing** ([`src/claude.ts`](src/claude.ts)) turns records into a small normalized model ([`src/types.ts`](src/types.ts)): user and assistant messages, thinking, tool calls paired with their results, system events, and raw items for anything else. Claude Code writes one line per content block and repeats the message's usage on each, so usage is counted once per API message id. Claude Code's own bookkeeping is kept out of the way: `file-history-snapshot` records (checkpoint backups) are skipped, `<synthetic>` messages it writes locally add no usage, post-compaction summaries are shown as system notes rather than user turns, and files that hold nothing but summary lines are not listed as sessions. A tool call's duration is the time between the call and its result. A subagent is attached to the Task call whose `prompt` matches the subagent's first message (in start order, so repeated identical prompts pair up correctly); subagents that match nothing are listed at the end of the transcript.
 - **Codex parsing** ([`src/codex.ts`](src/codex.ts)) reads `{timestamp, type, payload}` lines into the same model. The transcript comes from `response_item` lines (messages, reasoning summaries, `function_call`/`custom_tool_call` paired with their `*_call_output` by `call_id`); the `event_msg` copies of the same prompts, replies and commands are skipped. A tool call failed when its output starts with a non-zero `Exit code:` / `Process exited with code`, when older JSON-wrapped output has a non-zero `metadata.exit_code`, or when the output says `success: false`. Token usage comes from `token_count` events: their `total_token_usage` is cumulative and often repeated, so each event counts only the growth since the previous one. The model is the one from the latest `turn_context`. Files from before the envelope format (a bare metadata line, then bare response items) are read too. Codex has no subagent logs to nest.
 - **Serving** ([`src/server.ts`](src/server.ts)) uses Node's `http` module and renders HTML on the server. Parsed sessions are cached and a file is re-read only when its size or modification time changes, so new sessions show up on reload.
 - **Read-only.** Log files are opened for reading only. `export -o` refuses to write inside either log folder or to any `.jsonl` file.
 - **Local only.** The server listens on 127.0.0.1, answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]` on its own port (which blocks DNS-rebinding pages), only accepts GET, and sends a strict Content-Security-Policy. Other websites (and other servers on 127.0.0.1) can link to a tracelens page, but the browser's Fetch Metadata headers let tracelens refuse their attempts to load pages as images, scripts, frames or fetches, so they cannot time searches over your transcripts. All transcript text is HTML-escaped. The page loads no fonts, scripts or images from the internet, and an exported HTML file carries its own Content-Security-Policy.
 - **No login.** There is no password or token: any program running on your machine, under any user account, can read the web UI while `tracelens serve` runs. On a shared machine, stop it when you are done.
-- **Session URLs** are `/session/<folder>/<session id>`, because the same session id can appear in more than one Claude Code project folder. For a Codex session the folder is the day folder (`/session/20/<id>`).
+- **Session URLs** are `/session/<folder>/<session id>`, because the same session id can appear in more than one Claude Code project folder. For a Codex session the folder is the day folder (`/session/20/<id>`), or `archived_sessions` for an archived one.
 
 Both log formats are internal to their tools and change between versions. tracelens was written against synthetic fixtures modelled on the documented layout and field names (Claude Code: `type`, `message`, `usage`, `isSidechain`, `toolUseResult`, …; Codex: `session_meta`, `turn_context`, `response_item`, `event_msg`, `token_count`, …, taken from published schema notes), not against captured real logs, so expect to see some events shown raw; they are never dropped.
 

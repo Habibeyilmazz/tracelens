@@ -165,3 +165,15 @@ test('list does not pass terminal escape sequences from a log through to the ter
     rmSync(tmp, { recursive: true });
   }
 });
+
+test('export refuses to write into the Codex archived_sessions folder', () => {
+  const home = mkdtempSync(join(tmpdir(), 'tracelens-codex-home-'));
+  try {
+    mkdirSync(join(home, 'archived_sessions'));
+    const r = run('export', A, '--dir', FIXTURES, '--codex-dir', join(home, 'sessions'), '-o', join(home, 'archived_sessions', 'x.md'));
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /refusing to write inside a log folder/);
+  } finally {
+    rmSync(home, { recursive: true });
+  }
+});

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -247,5 +247,22 @@ test('a Codex folder next to a Claude Code folder: one store, no cross-talk', ()
     assert.deepEqual(new Store(FIXTURES, dir).sessions().map((s) => s.source), ['claude-code', 'claude-code']);
   } finally {
     rmSync(dir, { recursive: true });
+  }
+});
+
+test('archived Codex sessions (archived_sessions next to sessions/) are read too', () => {
+  const home = mkdtempSync(join(tmpdir(), 'tracelens-codex-home-'));
+  try {
+    const name = `rollout-2026-11-19T09-00-00-${C}.jsonl`;
+    mkdirSync(join(home, 'sessions'));
+    mkdirSync(join(home, 'archived_sessions'));
+    copyFileSync(join(CODEX_FIXTURES, '2026', '11', '19', name), join(home, 'archived_sessions', name));
+    const found = discoverCodex(join(home, 'sessions'));
+    assert.deepEqual(found.map((f) => f.id), [C]);
+    assert.equal(found[0].main, join(home, 'archived_sessions', name));
+    // Only next to a folder named "sessions": --codex-dir pointing elsewhere reads just that folder.
+    assert.deepEqual(discoverCodex(join(home, 'archived_sessions', '..', 'other')), []);
+  } finally {
+    rmSync(home, { recursive: true });
   }
 });
