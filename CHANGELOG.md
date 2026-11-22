@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed (round 9, first-run review)
+
+Done from a fresh clone of the GitHub repo, following the README quickstart word for word (with `CLAUDE_CONFIG_DIR` and `CODEX_HOME` pointed at empty folders, since agents here may not read real logs): `npm install`, `npm run build`, `serve` (empty state), `npm run demo`, `npm test` (103 pass), `npm run test:e2e` (4 pass), `scripts/screenshots.mjs` (no console errors or sideways scroll), and every CLI command and error path on the fixtures. Everything in the quickstart worked; these were wrong:
+
+- Cost: a Claude model newer than its pricing row was billed at an older version's rates. `claude-opus-4-9` (no row) was priced as `claude-opus-4` at $15/$75, three times the current Opus rate, and the code comment claimed the opposite. A `-N` or `-NN` right after a key now means another version ("not priced", add a row), while a date (`-20250514`) still matches. Test added (fails without the fix); the old test that expected `claude-opus-4-10` to get `claude-opus-4` prices was changed.
+- `npm run demo` on a later day kept the previous run's 7 Codex sessions next to the new ones (39 sessions, not 32), because Codex files go in day folders. The script now empties `.demo` first (only that folder).
+- README: the "Command line" section showed `tracelens …` before saying how to get that command (after the quickstart it is `node dist/src/cli.js …`, or `npm link`). It now says so first, and warns that `npx tracelens` would run an unrelated npm package that owns the name. The roadmap's npm item says publishing needs another name.
+
+### Notes for the next person (round 9)
+
+- Previous gaps re-checked: the Codex second-opinion review was tried again and hit the usage limit again ("try again at 9:32 AM"). The live page re-sending the whole transcript is a documented design limit, not a bug. Only Chromium is installed for Playwright here, so Safari and Firefox remain untested.
+- Unverified suspicion, not acted on: newer Claude Code versions may write record types such as `progress` (hook, tool and subagent progress) often enough to fill a transcript with collapsed "Unrecognized event" rows. tracelens shows them raw by design; if a real user reports it, skip or summarise that type like `file-history-snapshot`. Not changed because no documented or captured shape was available.
+- `tracelens list --limit 0` lists 20 (0 counts as "not given"); left as is.
+
 ### Changed (round 8, performance and accessibility pass)
 
 Measured first on synthetic data only: the 32 demo sessions, and a 118 MB set of 5,000 copies of them in 80 project folders plus one session with 20,000 tool calls (26 MB page). Chromium via Playwright 1.65.1 on this Mac, axe-core 4.10.3 (WCAG 2.0/2.1/2.2 A and AA plus best practices) on every page at 1280px and 390px in both themes, with every `<details>` closed and again with all open.
