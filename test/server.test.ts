@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { request } from 'node:http';
 import { after, before, test } from 'node:test';
 import type { Server } from 'node:http';
@@ -130,6 +132,49 @@ test('two project folders holding the same session id each get their own page', 
     assert.equal((await at(`/session/-Users-dev-three/${A}`)).status, 404);
   } finally {
     dup.close();
+    rmSync(dir, { recursive: true });
+  }
+});
+
+test('HTML in every log-controlled field stays text on every page', async () => {
+  // Payloads in the folder name, session id, summary, cwd, model, prompts, tool names/inputs/outputs,
+  // subagent id, block and event types, system text and an unparseable line.
+  const X = (tag: string) => `"'><img src=x onerror=alert('${tag}')><svg onload=alert('${tag}')>`;
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-xss-'));
+  const folder = '-evil-"><b>';
+  const id = "s<i>'x";
+  const t = (s: number) => `2026-11-20T10:00:0${s}.000Z`;
+  const recs = [
+    { type: 'summary', summary: X('summary') },
+    { type: 'user', timestamp: t(1), cwd: `/tmp/${X('cwd')}`, message: { content: X('prompt') } },
+    { type: 'assistant', timestamp: t(2), message: { id: 'm1', model: X('model'), usage: { input_tokens: 5, output_tokens: 5 }, content: [
+      { type: 'text', text: `${X('md')} [l](https://e.test/"onclick=alert(1)) [j](javascript:alert(1)) **${X('bold')}** \`${X('code')}\`` },
+      { type: 'thinking', thinking: X('thinking') },
+      { type: 'tool_use', id: 'tu1', name: X('tool'), input: { [X('key')]: X('val'), file_path: X('path') } },
+      { type: 'tool_use', id: 'tu2', name: 'Task', input: { prompt: X('task') } },
+      { type: X('blocktype') },
+    ] } },
+    { type: 'user', timestamp: t(3), message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: X('output'), is_error: true }] } },
+    { type: 'user', timestamp: t(4), isSidechain: true, agentId: X('agent'), message: { content: X('task') } },
+    { type: 'system', timestamp: t(5), level: 'error', content: X('system') },
+    { type: X('eventtype'), timestamp: t(6) },
+  ];
+  mkdirSync(join(dir, folder));
+  writeFileSync(join(dir, folder, `${id}.jsonl`), `${recs.map((r) => JSON.stringify(r)).join('\n')}\n${X('badline')}\n`);
+  const port = PORT + 2;
+  const srv = await listen(new Store(dir), loadPricing(), port);
+  try {
+    const href = `/session/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`;
+    const paths = ['/', `/?project=${encodeURIComponent(`/tmp/${X('cwd')}`)}`, '/insights', '/search?q=alert', `/search?q=${encodeURIComponent(X('q'))}`, href, `${href}/export?format=html`, `/session/${encodeURIComponent(X('f'))}/${encodeURIComponent(X('id'))}`];
+    for (const path of paths) {
+      const { status, body } = await get(path, { port });
+      assert.ok(status === 200 || status === 404, `${path}: ${status}`);
+      for (const bad of ['<img', '<svg onload', '<b>', '<i>', 'href="javascript:', '" onclick'])
+        assert.ok(!body.includes(bad), `${path} contains ${bad}`);
+    }
+    assert.match((await get(href, { port })).body, /&lt;img src=x onerror=alert\(&#39;output&#39;\)/, 'payloads are shown as text');
+  } finally {
+    srv.close();
     rmSync(dir, { recursive: true });
   }
 });
