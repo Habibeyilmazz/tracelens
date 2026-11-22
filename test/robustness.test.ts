@@ -11,6 +11,8 @@ import { oneLine } from '../src/format.js';
 import { computeInsights } from '../src/insights.js';
 import { loadPricing } from '../src/pricing.js';
 import { redactSecrets } from '../src/redact.js';
+import { sessionsPage } from '../src/render.js';
+import { sessionStats } from '../src/insights.js';
 import { Store } from '../src/store.js';
 
 const pricing = loadPricing();
@@ -102,6 +104,26 @@ test('redaction survives multi-megabyte runs without a stack overflow, and still
     const out = redactSecrets(s);
     assert.ok(!out.includes(token), 'token after the run leaked');
   }
+});
+
+test('a Codex session id from inside the file must be a plain id (a lone surrogate broke the whole session list)', () => {
+  const prompt = { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] };
+  for (const bad of ['x\uD800', 'a/b', '', 'x'.repeat(300), 42]) {
+    const s = withCodex([{ timestamp: '2026-03-08T10:00:00Z', type: 'session_meta', payload: { id: bad, cwd: '/w' } }, { timestamp: '2026-03-08T10:00:00Z', type: 'response_item', payload: prompt }]);
+    assert.equal(s.id, 'c', `kept id ${JSON.stringify(bad)}`);
+    assert.doesNotThrow(() => sessionsPage([{ s, st: sessionStats(s, pricing) }], [s.project], { sort: 'date', dir: '/d' }));
+  }
+  const ok = withCodex([{ timestamp: '2026-03-08T10:00:00Z', type: 'session_meta', payload: { id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b' } }]);
+  assert.equal(ok.id, '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b');
+});
+
+test('absurd token counts are ignored instead of making the cost Infinity', () => {
+  const big = JSON.stringify({ type: 'assistant', timestamp: '2026-03-08T09:31:00Z', message: { id: 'm', model: 'claude-sonnet-4-5', content: [], usage: { input_tokens: 1e308, output_tokens: 5 } } });
+  const s = parse(`${user('a')}\n${big}\n`);
+  const st = sessionStats(s, pricing);
+  assert.ok(Number.isFinite(st.cost));
+  assert.equal(st.usage.input, 0);
+  assert.equal(st.usage.output, 5);
 });
 
 // Writes 600 MB to the temp folder, so it only runs with TRACELENS_SLOW_TESTS=1.

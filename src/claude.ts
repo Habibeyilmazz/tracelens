@@ -151,7 +151,8 @@ export function textOf(content: unknown): string {
   return JSON.stringify(content, null, 2);
 }
 
-export const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+// Over a trillion tokens in one count is junk, and 1e308 of them would make every cost Infinity.
+export const num = (v: unknown) => (typeof v === 'number' && v > 0 && v < 1e12 ? v : 0);
 
 export function toUsage(u: Rec): Usage {
   const cacheWrite = num(u?.cache_creation_input_tokens);

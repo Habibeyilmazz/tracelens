@@ -119,7 +119,8 @@ export function parseCodex(files: SessionFiles): Session {
     }
 
     if (type === 'session_meta') {
-      if (typeof p.id === 'string' && p.id) id = p.id;
+      // The id ends up in URLs: only a plain one (Codex writes UUIDs) is taken from inside the file.
+      if (typeof p.id === 'string' && /^[\w.-]{1,100}$/.test(p.id)) id = p.id;
       if (typeof p.cwd === 'string') cwd ??= p.cwd;
     } else if (type === 'turn_context') {
       if (typeof p.model === 'string' && p.model) models.add((model = p.model));
