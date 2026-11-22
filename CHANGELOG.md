@@ -21,9 +21,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Notes for the next person (round 4)
 
+- Codex second-opinion review (`codex exec -s read-only`) found six issues, all fixed and tested: JSON tool output with an `output` key but no `metadata.exit_code` was cut down to that key; an `apply_patch` that failed was counted as a success (failures now also come from `exec_command_end`/`patch_apply_end` events by `call_id`); `gpt-5.1-codex-mini` was priced as `gpt-5.1` (5x too high); a prompt written as `<task>…</task>` was hidden as injected context (only known Codex tags count now); patch paths ignored the call's `workdir`; `*** Move to:` destinations were not counted as edited files.
+
 - Chosen because it was the top roadmap item, part of the original brief, and the one thing a Codex user could not work around. The Codex format was built from published third-party schema notes and synthetic fixtures (`test/fixtures/codex`), never from a real `~/.codex` log. First thing to do with real logs: look for "Unrecognized" rows and tool calls with no result.
 - Tests never read the real Codex folder: CLI tests set `CODEX_HOME` to an empty temp path; the store only reads Codex when given a folder. Anyone running `serve`/`list` by hand without `--codex-dir` reads the real default folder, which is the point for a user but worth knowing on a shared build machine.
-- Not handled: Codex `history.jsonl`, archived sessions (`~/.codex/archived_sessions`), Codex subagents/collaboration tools (shown as ordinary tool calls), the long-context price tier. `web_search_call` items show as a `web_search` tool call with no recorded result. Pricing rows for variants without a published price (`gpt-5.1-codex-mini`, `gpt-5.1-codex-max`) fall back to their base model's price.
+- Not handled: Codex `history.jsonl`, archived sessions (`~/.codex/archived_sessions`), Codex subagents/collaboration tools (shown as ordinary tool calls), the long-context price tier. `web_search_call` items show as a `web_search` tool call with no recorded result. Variants without a row of their own (`gpt-5.1-codex-max`, `gpt-5.2-codex`) are priced as their base model; `gpt-5.1-codex-mini` has its own row ($0.25/$2).
 - Codex session URLs use the day folder (`/session/20/<id>`): ids are UUIDs, so they do not collide.
 
 ### Security (round 3, security pass)

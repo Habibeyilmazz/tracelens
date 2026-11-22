@@ -153,12 +153,47 @@ test('the project folder falls back to the <cwd> in the environment context', ()
   }
 });
 
+test('review fixes: strict JSON unwrap, patch failures from events, workdir, Move to', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-codex-'));
+  try {
+    const rec = (type: string, payload: object) => JSON.stringify({ timestamp: '2026-11-19T09:00:00.000Z', type, payload });
+    const patch = '*** Begin Patch\n*** Update File: old.ts\n*** Move to: new.ts\n@@\n-a\n+b\n*** End Patch';
+    const lines = [
+      rec('session_meta', { id: 'r', cwd: '/repo' }),
+      rec('response_item', { type: 'function_call', name: 'mcp__db__query', arguments: '{}', call_id: 'j' }),
+      rec('response_item', { type: 'function_call_output', call_id: 'j', output: '{"output":"ok","rows":[{"id":42}]}' }),
+      rec('response_item', { type: 'custom_tool_call', name: 'apply_patch', input: patch, call_id: 'bad' }),
+      rec('event_msg', { type: 'patch_apply_end', call_id: 'bad', success: false }),
+      rec('response_item', { type: 'custom_tool_call_output', call_id: 'bad', output: 'Failed to find expected lines in old.ts' }),
+      rec('response_item', { type: 'function_call', name: 'shell', arguments: JSON.stringify({ command: ['apply_patch', patch], workdir: 'sub' }), call_id: 'ok' }),
+      rec('response_item', { type: 'function_call_output', call_id: 'ok', output: '{"output":"Done","metadata":{"exit_code":0,"duration_seconds":0}}' }),
+      rec('response_item', { type: 'function_call', name: 'shell', arguments: '{"command":["false"]}', call_id: 'neg' }),
+      rec('response_item', { type: 'function_call_output', call_id: 'neg', output: '{"output":"killed","metadata":{"exit_code":-1}}' }),
+    ];
+    const file = join(dir, 'rollout-r.jsonl');
+    writeFileSync(file, lines.join('\n'));
+    const s = parseCodex({ id: 'r', main: file, subagents: [] });
+    const [json, bad, ok, neg] = sessionToolCalls(s);
+    assert.equal(json.output, '{"output":"ok","rows":[{"id":42}]}');
+    assert.equal(json.isError, false);
+    assert.equal(bad.isError, true);
+    assert.deepEqual([ok.isError, ok.output], [false, 'Done']);
+    assert.equal(neg.isError, true);
+    assert.equal(toolLabel(bad.input), 'Update old.ts, to new.ts');
+    const files = computeInsights([s], pricing).files.map((f) => f.path).sort();
+    assert.deepEqual(files, ['/repo/sub/new.ts', '/repo/sub/old.ts']);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
 test('context labels: environment and AGENTS.md blocks, not prompts that mention tags', () => {
   assert.equal(contextLabel('<environment_context>\n<cwd>/x</cwd>\n</environment_context>'), 'environment_context');
   assert.equal(contextLabel('<user_instructions>be brief</user_instructions>\n'), 'user_instructions');
   assert.equal(contextLabel('# AGENTS.md instructions for /x\n\n<INSTRUCTIONS>…</INSTRUCTIONS>'), 'AGENTS.md instructions');
   assert.equal(contextLabel('<div> is not centered, fix it'), undefined);
   assert.equal(contextLabel('<b>bold</b> then more text'), undefined);
+  assert.equal(contextLabel('<task>Fix the failing tests</task>'), undefined);
 });
 
 test('tool labels for Codex calls', () => {
@@ -197,6 +232,7 @@ test('OpenAI model ids are priced by their own entry, never by a different versi
   const key = (m: string) => Object.entries(pricing).find(([, r]) => r === ratesFor(pricing, m))?.[0];
   assert.equal(key('gpt-5-codex'), 'gpt-5');
   assert.equal(key('gpt-5.1-codex-max'), 'gpt-5.1');
+  assert.equal(key('gpt-5.1-codex-mini'), 'gpt-5.1-codex-mini');
   assert.equal(key('gpt-5.4-mini-2026-03-01'), 'gpt-5.4-mini');
   assert.equal(key('gpt-6.1-sol'), 'gpt-6.1-sol');
   assert.equal(ratesFor(pricing, 'gpt-5.9'), undefined, 'an unknown 5.x is not priced as gpt-5');

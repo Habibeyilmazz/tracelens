@@ -36,12 +36,16 @@ const DUPLICATE_EVENTS = new Set([
   'turn_diff', 'plan_update', 'view_image_tool_call',
 ]);
 
+// Blocks Codex wraps around text it adds to the conversation as "user" messages. Only these: a prompt
+// the user wrote as <task>…</task> is still a prompt.
+const CONTEXT_TAGS = new Set(['environment_context', 'user_instructions', 'permissions instructions', 'user_shell_command', 'turn_aborted']);
+
 /** Text Codex injects as a "user" message (environment, AGENTS.md); returns a label for it, or undefined for a real prompt. */
 export function contextLabel(text: string): string | undefined {
   const t = text.trim();
   if (t.startsWith('# AGENTS.md instructions')) return 'AGENTS.md instructions';
-  const tag = /^<([a-z_ -]+)>[\s\S]*<\/\1>$/i.exec(t);
-  return tag ? tag[1] : undefined;
+  const tag = /^<([a-z_ -]+)>[\s\S]*<\/\1>$/i.exec(t)?.[1];
+  return tag && CONTEXT_TAGS.has(tag) ? tag : undefined;
 }
 
 function blocksOf(content: unknown): string[] {
@@ -56,7 +60,7 @@ function outputOf(o: unknown): { text: string; failed: boolean } {
     if (o.startsWith('{')) {
       try {
         const j = JSON.parse(o);
-        if (typeof j?.output === 'string') return { text: j.output, failed: num(j.metadata?.exit_code) > 0 };
+        if (typeof j?.output === 'string' && typeof j.metadata?.exit_code === 'number') return { text: j.output, failed: j.metadata.exit_code !== 0 };
       } catch {
         // plain text that happens to start with '{'
       }
@@ -81,6 +85,7 @@ export function parseCodex(files: SessionFiles): Session {
   let n = 0, ts = 0, first = 0, last = 0;
   let id = files.id, cwd: string | undefined, model = 'unknown';
   let prevTotal: ReturnType<typeof tokens> | undefined;
+  const failedIds = new Set<string>(); // from exec_command_end / patch_apply_end events, which may come before or after the output
 
   const push = (it: Item) => items.push(it);
   const raw = (label: string, json: string) => push({ kind: 'raw', n: n++, ts, label, json });
@@ -194,6 +199,8 @@ export function parseCodex(files: SessionFiles): Session {
         if (!u || !(u.input || u.output)) continue;
         // OpenAI counts cached tokens inside input_tokens, and reasoning tokens inside output_tokens.
         usage.push({ ts, model, usage: { input: Math.max(0, u.input - u.cached), output: u.output, cacheWrite: 0, cacheWrite1h: 0, cacheRead: Math.min(u.cached, u.input) } });
+      } else if (p.type === 'exec_command_end' || p.type === 'patch_apply_end') {
+        if (typeof p.call_id === 'string' && (p.success === false || (typeof p.exit_code === 'number' && p.exit_code !== 0))) failedIds.add(p.call_id);
       } else if (p.type === 'error') note(typeof p.message === 'string' ? p.message : 'Error', true);
       else if (p.type === 'stream_error') note(`Stream error${typeof p.message === 'string' ? `: ${p.message}` : ''}`);
       else if (p.type === 'turn_aborted') note(`Turn aborted${typeof p.reason === 'string' ? ` (${p.reason})` : ''}`);
@@ -206,6 +213,7 @@ export function parseCodex(files: SessionFiles): Session {
     }
   }
 
+  for (const it of items) if (it.kind === 'tool' && failedIds.has(it.id)) it.isError = true;
   const prompt = items.find((i) => i.kind === 'user');
   return {
     id,

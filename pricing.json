@@ -37,6 +37,7 @@
     "gpt-5.4-nano": { "input": 0.2, "output": 1.25, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.02 },
     "gpt-5.3-codex": { "input": 1.75, "output": 14, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.175 },
     "gpt-5.2": { "input": 1.75, "output": 14, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.175 },
+    "gpt-5.1-codex-mini": { "input": 0.25, "output": 2, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.025 },
     "gpt-5.1": { "input": 1.25, "output": 10, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.125 },
     "gpt-5": { "input": 1.25, "output": 10, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.125 },
     "gpt-5-mini": { "input": 0.25, "output": 2, "cacheWrite": 0, "cacheWrite1h": 0, "cacheRead": 0.025 },

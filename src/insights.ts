@@ -27,9 +27,11 @@ export function editedPaths(call: ToolCall, cwd: string): string[] {
     : Array.isArray(input?.command) && input.command[0] === 'apply_patch' ? input.command[1]
     : undefined;
   if (typeof patch !== 'string') return [];
+  const wd = input?.workdir;
+  const workdir = typeof wd === 'string' && wd ? (isAbsolute(wd) ? wd : join(cwd, wd)) : cwd;
   return patchFiles(patch)
     .filter((f) => f.op !== 'Delete')
-    .map((f) => (isAbsolute(f.path) ? f.path : join(cwd, f.path)));
+    .map((f) => (isAbsolute(f.path) ? f.path : join(workdir, f.path)));
 }
 
 export interface SessionStats {

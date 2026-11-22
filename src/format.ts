@@ -51,12 +51,12 @@ export const shortModel = (m: string) => m.replace(/^claude-/, '').replace(/-\d{
 export const agentName = (source: string) => (source === 'codex' ? 'Codex' : 'Claude Code');
 export const shortPath = (p: string) => p.split(/[\\/]/).filter(Boolean).slice(-2).join('/') || p;
 
-/** Files named in a Codex apply_patch envelope, with what happens to each. */
+/** Files named in a Codex apply_patch envelope, with what happens to each ("Move" names a renamed file's new path). */
 export const patchFiles = (patch: string) =>
-  [...patch.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)].map((m) => ({ op: m[1], path: m[2].trim() }));
+  [...patch.matchAll(/^\*\*\* (?:(Add|Update|Delete) File|(Move) to): (.+)$/gm)].map((m) => ({ op: m[1] ?? m[2], path: m[3].trim() }));
 
 const label = (s: string) =>
-  oneLine(s.startsWith('*** Begin Patch') ? patchFiles(s).map((f) => `${f.op} ${f.path}`).join(', ') || s : s);
+  oneLine(s.startsWith('*** Begin Patch') ? patchFiles(s).map((f) => `${f.op === 'Move' ? 'to' : f.op} ${f.path}`).join(', ') || s : s);
 
 /** The one argument that best describes a tool call (command, path, pattern, …). */
 export function toolLabel(input: unknown): string {
