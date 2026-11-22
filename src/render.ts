@@ -137,16 +137,17 @@ mark{background:var(--mark);color:inherit;border-radius:2px}
 .hbar{display:inline-block;height:8px;border-radius:4px;background:var(--tool);vertical-align:middle;margin-right:.4rem}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,30rem),1fr));gap:0 1.5rem}
 .empty{background:var(--panel);border:1px dashed var(--rule);border-radius:8px;padding:1.2rem}
+.empty>p:first-child{margin-top:0}.empty>p:last-child{margin-bottom:0}
 footer.export{margin-top:3rem;color:var(--faint);font-size:.82rem}
-@media (max-width:640px){
+@media (max-width:820px){
 table.list,table.list tbody{display:block}table.list thead{display:none}
 table.list tr{display:flex;flex-wrap:wrap;gap:.1rem 1.1rem;padding:.75rem .9rem;border-bottom:1px solid var(--rule)}
 table.list tr:last-child{border-bottom:0}
 table.list td{display:block;border:0;padding:0;text-align:left}
 table.list td.title{order:-1;flex-basis:100%;min-width:0;margin-bottom:.15rem}
 table.list td.when{flex-basis:100%;color:var(--muted);font-size:.85rem}
-table.list td.num::before{content:attr(data-label) " ";color:var(--muted);font-size:.8rem;font-weight:400}
-.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
+table.list td.num::before{content:attr(data-label) " ";color:var(--muted);font-size:.8rem;font-weight:400}}
+@media (max-width:640px){.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
 `;
 
 // Opens the collapsed ancestors of a linked item, and wires the expand/collapse buttons.
@@ -212,8 +213,8 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
   return page(
     'Sessions',
     `<h1>Sessions <span class="muted">${rows.length}</span></h1>
-<form class="filters" method="get" action="/"><label>Project <select name="project" data-autosubmit><option value="">All projects</option>${options}</select></label>
-<label>Sort by <select name="sort" data-autosubmit>${SORTS.map(([k, l]) => `<option value="${k}"${k === q.sort ? ' selected' : ''}>${l}</option>`).join('')}</select></label><noscript><button>Apply</button></noscript></form>
+${rows.length || q.project ? `<form class="filters" method="get" action="/"><label>Project <select name="project" data-autosubmit><option value="">All projects</option>${options}</select></label>
+<label>Sort by <select name="sort" data-autosubmit>${SORTS.map(([k, l]) => `<option value="${k}"${k === q.sort ? ' selected' : ''}>${l}</option>`).join('')}</select></label><noscript><button>Apply</button></noscript></form>` : ''}
 ${
   rows.length
     ? `<div class="scroll"><table class="list"><thead><tr>${sortTh('date', 'Started')}<th>Session</th>${sortTh('duration', 'Duration', ' class="num"')}

@@ -7,8 +7,9 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added (round 2, design pass)
 
 - Assistant replies render as Markdown in the web UI and the HTML export (`src/mdhtml.ts`): paragraphs, headings, fenced code, nested lists, quotes, rules, pipe tables, inline code, bold, italic and http(s) links. All text is escaped; other link schemes stay as text; images are never loaded (alt text only). User prompts are still shown exactly as typed.
-- Session list: a "Sort by" select next to the project filter; under 640px wide each session becomes a stacked card (title, project and models, start time, then labelled duration/tokens/cost/tools/errors) instead of a table cut off at the right edge.
+- Session list: a "Sort by" select next to the project filter; under 820px wide each session becomes a stacked card (title, project and models, start time, then labelled duration/tokens/cost/tools/errors) instead of a table cut off at the right edge.
 - Skip-to-content link.
+- With no sessions at all, the empty-state message is shown without the (useless) project and sort filters.
 
 ### Changed (round 2, design pass)
 
