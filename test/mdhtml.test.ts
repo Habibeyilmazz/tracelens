@@ -52,7 +52,7 @@ test('markdown: pipe tables, with escaped pipes and short rows', () => {
 test('markdown: large input renders in linear time', () => {
   for (const deep of ['>'.repeat(100_000) + ' x', Array.from({ length: 5000 }, (_, k) => ' '.repeat(k * 2) + '- x').join('\n')])
     assert.match(mdToHtml(deep), /x/);
-  const big = '*a '.repeat(50_000) + '\n' + '- x\n'.repeat(20_000) + '`'.repeat(10_000);
+  const big = '['.repeat(50_000) + '![a'.repeat(30_000) + '*a '.repeat(50_000) + '\n' + '- x\n'.repeat(20_000) + '`'.repeat(10_000);
   const t = Date.now();
   mdToHtml(big);
   assert.ok(Date.now() - t < 2000);

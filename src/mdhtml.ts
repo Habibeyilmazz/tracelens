@@ -115,8 +115,9 @@ export function inline(s: string): string {
     .map((part, k) => {
       if (k % 2) return `<code>${esc(part.replace(/^`+ ?| ?`+$/g, ''))}</code>`;
       return esc(part)
-        .replace(/!\[([^\]]*)\]\([^)\s]*\)/g, '$1')
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" rel="noreferrer">$1</a>')
+        // Brackets are excluded inside the label so a long run of '[' stays linear.
+        .replace(/!\[([^[\]]*)\]\([^)\s]*\)/g, '$1')
+        .replace(/\[([^[\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" rel="noreferrer">$1</a>')
         // No '*' inside a span: keeps these linear on long runs of unmatched asterisks.
         .replace(/\*\*([^\s*](?:[^*]*[^\s*])?)\*\*/g, '<strong>$1</strong>')
         .replace(/(^|[^\w*])\*([^\s*](?:[^*]*[^\s*])?)\*(?![\w*])/g, '$1<em>$2</em>');
