@@ -5,7 +5,7 @@ tracelens reads agent logs that can hold source code, file paths and secrets, so
 ## What tracelens promises
 
 - It only reads log files; it never writes to them. `export -o` refuses to write into a log folder or to any `.jsonl` file.
-- The web UI listens on 127.0.0.1 only, accepts only GET, answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]` on its own port, refuses cross-site subresource requests (Fetch Metadata), and sends a strict Content-Security-Policy.
+- The web UI listens on 127.0.0.1 only, accepts only GET and HEAD, answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]` on its own port, refuses cross-site subresource requests (Fetch Metadata), and sends a strict Content-Security-Policy.
 - It makes no network requests of its own and loads nothing from the internet.
 - `--redact` is pattern matching. It catches common secret shapes, not every secret: read an export before you share it.
 
