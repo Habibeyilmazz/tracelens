@@ -51,6 +51,11 @@ test('export refuses to write into the log folder and leaves logs untouched', ()
   const r = run('export', A, '--dir', FIXTURES, '-o', join(FIXTURES, 'out.md'));
   assert.equal(r.status, 1);
   assert.match(r.stderr, /refusing to write inside a log folder/);
+  // a name starting with '..' is still inside the folder
+  const dots = run('export', A, '--dir', FIXTURES, '-o', join(FIXTURES, '..report.md'));
+  assert.equal(dots.status, 1);
+  assert.match(dots.stderr, /refusing to write inside a log folder/);
+  assert.ok(!existsSync(join(FIXTURES, '..report.md')));
   // a log opened by path, outside --dir, is protected too
   const self = run('export', log, '--dir', tmpdir(), '-o', log);
   assert.equal(self.status, 1);

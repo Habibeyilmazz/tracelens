@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, relative, resolve, isAbsolute } from 'node:path';
+import { basename, dirname, join, relative, resolve, isAbsolute, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 import { filesForPath, parseSession } from './claude.js';
 import { codexArchive, isRollout, parseCodex } from './codex.js';
@@ -121,7 +121,8 @@ async function main(argv: string[]) {
     const out = real(resolve(o.output));
     const inside = (folder: string) => {
       const rel = relative(real(folder), out);
-      return rel && !rel.startsWith('..') && !isAbsolute(rel);
+      // '..report.md' is a file inside the folder; only '..' itself or '../…' leaves it.
+      return rel && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
     };
     // A .jsonl target may live outside the log folders, so also refuse any .jsonl output (it could be that log or a subagent's).
     const logDirs = [dir, codexDir, codexArchive(codexDir)].filter((d): d is string => !!d);
