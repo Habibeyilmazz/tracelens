@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Security (round 11, security pass)
+
+Reviewed by hand (the security-review skill needs the session to start inside a git repo, and this one does not): server, renderers, both exporters, redaction, CLI paths, CI workflow, git history, dependencies.
+
+- Fixed: a Markdown export could load images and run HTML from the log when viewed. User, assistant and system text went into the `.md` verbatim, so `![x](https://host/?data)`, `<img src=…>` or a `<details>`/`<iframe>` in a log (for example one written by a prompt-injected model) became live on GitHub or in an editor preview (VS Code's preview loads https images). The HTML export and the web UI were not affected. Now, outside code, `<` that could open a tag or autolink is written `&lt;` and `![` becomes `!\[` (it reads the same). Code blocks are written out again at column 0 with a fence their content cannot close, so a renderer cannot disagree about where they end (an indented one is dedented; one left open is closed before the next message). Inline code holding `<` or `![` is written as `<code>` with entities, because markdown-it and commonmark.js do not always pair backticks the way the spec reads (link labels, table cells, strikethrough); a viewer without HTML support shows that tag as text. Tool names and record labels in `<summary>` lose their line breaks: a blank line there ended the HTML block, and the rest was read as Markdown. Regression tests in `test/export.test.ts` (checked: both fail without the fix). Also checked with a throwaway fuzzer, not in the repo: 560,000 random exports through markdown-it 14.1.0 (`html: true`) and commonmark.js 0.31.2 gave no raw tag, image or stray `<details>` (the old code: 2,680 leaks in 2,000 cases). The fuzzer also caught a quadratic case (3.5 s for a 1 MB line of backtick runs that never close), now linear, with a test.
+- Visible change in exports of normal sessions (checked on all 36 demo and fixture sessions): only Claude Code's `<command-name>` tags, which a Markdown viewer used to hide, now show as text.
+- Redaction now also catches Stripe (`sk_live_`, `rk_test_`, …), GitLab (`glpat-`), Hugging Face (`hf_`) and SendGrid (`SG.…`) keys and Slack/Discord webhook URLs outside `key=value` assignments. Added to the linear-time test.
+- Checked, no change needed: the web UI's Markdown renderer (fuzzed the same way, 200,000 cases: only its own tags, links only http(s)); Host/Fetch-Metadata checks and CSP; `export -o` path guard; `npm audit` (0 vulnerabilities); git history (no keys, real names or home paths; all commits use the noreply identity); CI has `contents: read`, actions pinned to SHAs that match their tags (checked with the GitHub API), `persist-credentials: false`.
+
+### Notes for the next person (round 11)
+
+- The Codex second-opinion review hit its usage limit again ("try again at 9:32 AM"). The previous gaps are unchanged and none is a bug fixable here: Safari/Firefox untested (only Chromium is installed), axe not re-run (no UI change this round), the `progress` record shape is from memory (no real logs may be read), `docs/demo.gif` not re-recorded.
+- Not changed on purpose: GitHub renders some fence languages itself (`mermaid`, `geojson`, `stl`); a code block in a message keeps its language, so a `geojson` block in an export viewed on GitHub shows a map with tiles from GitHub's map provider. No log data is sent.
+
 ### Changed (round 10, design pass)
 
 Looked at every page in Chromium (Playwright 1.65.1) at 1280px and 390px, light and dark, plus the empty, no-results and not-found states, and tabbed through a session page with the keyboard. Fixed what was broken or cramped; the overall look was kept.
