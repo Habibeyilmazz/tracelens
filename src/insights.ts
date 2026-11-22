@@ -168,8 +168,7 @@ export function computeInsights(all: Session[], pricing: Pricing, opts: InsightO
     slowest: timed.sort((a, b) => b.call.durationMs! - a.call.durationMs!).slice(0, 10),
     files: [...files.entries()]
       .map(([path, f]) => ({ path, edits: f.edits, sessions: f.ids.size }))
-      .sort((a, b) => b.edits - a.edits || a.path.localeCompare(b.path))
-      .slice(0, 20),
+      .sort((a, b) => b.edits - a.edits || a.path.localeCompare(b.path)),
   };
 }
 
@@ -184,4 +183,33 @@ function fillDays(rows: Row[]): Row[] {
   for (let k = dayKey(cur.getTime()); k <= keys[keys.length - 1]; cur.setDate(cur.getDate() + 1), k = dayKey(cur.getTime()))
     out.push(byKey.get(k) ?? { key: k, sessions: 0, usage: emptyUsage(), cost: 0 });
   return out;
+}
+
+export const CSV_TABLES = ['days', 'projects', 'models', 'tools', 'files'] as const;
+export type CsvTable = (typeof CSV_TABLES)[number];
+
+/** A text cell: RFC 4180 quoting, and a leading ' on text a spreadsheet would run as a formula
+ *  (project paths, model, tool and file names all come from the logs). */
+const text = (v: string) => {
+  const t = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+  return /[",\r\n]/.test(t) ? `"${t.replaceAll('"', '""')}"` : t;
+};
+const usd = (n: number) => String(Number(n.toFixed(6)));
+
+/** One insights table as CSV with raw numbers (tokens, milliseconds, USD), every row (the page shows the top 20).
+ *  Starts with a UTF-8 byte-order mark so Excel reads non-ASCII paths correctly. */
+export function insightsCsv(ins: Insights, table: CsvTable): string {
+  const usageRows = (key: string, rows: Row[], cost: (r: Row) => string) => [
+    [key, 'sessions', 'input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_read_tokens', 'estimated_cost_usd'],
+    ...rows.map((r) => [text(r.key), r.sessions, r.usage.input, r.usage.output, r.usage.cacheWrite, r.usage.cacheRead, cost(r)]),
+  ];
+  const unpriced = new Set(ins.unpricedModels);
+  const rows =
+    table === 'days' ? usageRows('date', ins.byDay, (r) => usd(r.cost))
+    : table === 'projects' ? usageRows('project', ins.byProject, (r) => usd(r.cost))
+    // A model without a price gets an empty cost cell, not 0.
+    : table === 'models' ? usageRows('model', ins.byModel, (r) => (unpriced.has(r.key) ? '' : usd(r.cost)))
+    : table === 'tools' ? [['tool', 'calls', 'errors', 'avg_ms', 'max_ms'], ...ins.tools.map((t) => [text(t.name), t.calls, t.errors, Math.round(t.avgMs), Math.round(t.maxMs)])]
+    : [['file', 'edits', 'sessions'], ...ins.files.map((f) => [text(f.path), f.edits, f.sessions])];
+  return '\uFEFF' + rows.map((r) => r.join(',') + '\r\n').join('');
 }

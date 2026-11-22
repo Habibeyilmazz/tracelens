@@ -109,6 +109,9 @@ test('list → session → tool call → search → insights → export', async 
   assert.ok(await page.locator('svg').count(), 'charts render');
   assert.equal(await page.getByRole('heading', { name: 'Estimated cost per day' }).count(), 1);
   assert.match((await page.locator('main').textContent()) ?? '', /Bash/);
+  const [csv] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: 'Download all tools as CSV' }).click()]);
+  assert.equal(csv.suggestedFilename(), 'tracelens-tools.csv');
+  assert.match(readFileSync((await csv.path())!, 'utf8'), /^\uFEFFtool,calls,errors,avg_ms,max_ms\r\n(.+\r\n)*Bash,/);
 
   // Export the session as Markdown, redacted (the default).
   await page.goto(`${BASE}/?sort=date`);

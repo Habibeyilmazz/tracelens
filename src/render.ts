@@ -457,6 +457,10 @@ export function insightsPage(ins: Insights, projects: string[], q: InsightsQuery
   const maxCalls = Math.max(1, ...ins.tools.map((t) => t.calls));
   const field = (k: string, v: string) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
   const u = ins.usage;
+  const csv = (table: string, what: string) => {
+    const qs = new URLSearchParams({ table, ...(q.days ? { days: String(q.days) } : {}), ...(q.project ? { project: q.project } : {}) });
+    return ` · <a href="/insights.csv?${esc(qs.toString())}" download aria-label="Download ${what} as CSV">CSV</a>`;
+  };
 
   const toolsTable = ins.tools.length
     ? `<div class="scroll" tabindex="0" role="region" aria-label="Most-used tools"><table><thead><tr><th>Tool</th><th>Calls</th><th class="num">Errors</th><th class="num">Avg time</th><th class="num">Slowest</th></tr></thead><tbody>
@@ -481,7 +485,7 @@ ${ins.slowest
 
   const filesTable = ins.files.length
     ? `<div class="scroll" tabindex="0" role="region" aria-label="Files edited most often"><table><thead><tr><th>File</th><th class="num">Edits</th><th class="num">Sessions</th></tr></thead><tbody>
-${ins.files.map((f) => `<tr><td class="mono" title="${esc(f.path)}">${esc(shortPath(f.path)).replaceAll('/', '/<wbr>')}</td><td class="num">${f.edits}</td><td class="num">${f.sessions}</td></tr>`).join('')}</tbody></table></div>`
+${ins.files.slice(0, 20).map((f) => `<tr><td class="mono" title="${esc(f.path)}">${esc(shortPath(f.path)).replaceAll('/', '/<wbr>')}</td><td class="num">${f.edits}</td><td class="num">${f.sessions}</td></tr>`).join('')}</tbody></table></div>`
     : `<p class="empty">No file edits in this range.</p>`;
 
   const body = `<h1>Insights</h1>
@@ -494,14 +498,14 @@ ${field('Cache write / read', `${fmtTokens(u.cacheWrite)} / ${fmtTokens(u.cacheR
   }</p>
 ${
   ins.byDay.length
-    ? `<div class="cols"><section><h2>Tokens per day</h2><p class="muted">Input, output and cache tokens</p>${barChart(ins.byDay, (r) => totalTokens(r.usage), fmtTokens, 'Tokens per day')}</section>
+    ? `<div class="cols"><section><h2>Tokens per day</h2><p class="muted">Input, output and cache tokens${csv('days', 'tokens and cost per day')}</p>${barChart(ins.byDay, (r) => totalTokens(r.usage), fmtTokens, 'Tokens per day')}</section>
 <section><h2>Estimated cost per day</h2><p class="muted">USD, from pricing.json</p>${barChart(ins.byDay, (r) => r.cost, fmtUSD, 'Estimated cost per day')}</section></div>`
     : ''
 }
-<h2>By project</h2><p class="muted">Sorted by estimated cost</p>${usageTable(ins.byProject, 'Project', (r) => `<span title="${esc(r.key)}">${esc(shortPath(r.key))}</span>`)}
-<h2>By model</h2><p class="muted">Sorted by estimated cost</p>${usageTable(ins.byModel, 'Model', (r) => `<code>${esc(r.key)}</code>`)}
-<div class="cols"><section><h2>Most-used tools</h2><p class="muted">Including tool calls made by subagents</p>${toolsTable}</section>
+<h2>By project</h2><p class="muted">Sorted by estimated cost${csv('projects', 'usage by project')}</p>${usageTable(ins.byProject, 'Project', (r) => `<span title="${esc(r.key)}">${esc(shortPath(r.key))}</span>`)}
+<h2>By model</h2><p class="muted">Sorted by estimated cost${csv('models', 'usage by model')}</p>${usageTable(ins.byModel, 'Model', (r) => `<code>${esc(r.key)}</code>`)}
+<div class="cols"><section><h2>Most-used tools</h2><p class="muted">Including tool calls made by subagents${csv('tools', 'all tools')}</p>${toolsTable}</section>
 <section><h2>Slowest tool calls</h2><p class="muted">Time from the call to its result</p>${slowTable}</section></div>
-<h2>Files edited most often</h2><p class="muted">Successful Edit, MultiEdit, Write and NotebookEdit calls, and Codex apply_patch</p>${filesTable}`;
+<h2>Files edited most often</h2><p class="muted">Successful Edit, MultiEdit, Write and NotebookEdit calls, and Codex apply_patch${csv('files', 'all edited files')}</p>${filesTable}`;
   return page('Insights', body, 'insights');
 }

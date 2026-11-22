@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { computeInsights, sessionStats } from '../src/insights.js';
+import { computeInsights, insightsCsv, sessionStats, type Insights } from '../src/insights.js';
 import { costOf, loadPricing, parsePricing, ratesFor } from '../src/pricing.js';
 import { search, terms } from '../src/search.js';
 import { A, B, fixtureSessions } from './helpers.js';
@@ -159,4 +159,28 @@ test('search snippets show every word at least once and merge words that sit tog
   assert.equal(close.total, 3);
   assert.equal(close.matches.length, 1);
   assert.equal(close.shown, 3);
+});
+
+test('insights CSV: raw numbers, every row, quoting, no formulas, empty cost for unpriced models', () => {
+  const { sessions } = fixtureSessions();
+  const ins = computeInsights(sessions, pricing);
+  const lines = (csv: string) => {
+    assert.ok(csv.startsWith('\uFEFF') && csv.endsWith('\r\n'));
+    return csv.slice(1, -2).split('\r\n');
+  };
+  const models = lines(insightsCsv(ins, 'models'));
+  assert.equal(models[0], 'model,sessions,input_tokens,output_tokens,cache_write_tokens,cache_read_tokens,estimated_cost_usd');
+  assert.equal(models.length, ins.byModel.length + 1);
+  assert.match(models.find((l) => l.startsWith('claude-experimental-9,'))!, /,$/, 'unpriced: empty cost, not 0');
+  const total = lines(insightsCsv(ins, 'days')).slice(1).reduce((sum, l) => sum + Number(l.split(',').at(-1)), 0);
+  close(Math.round(total * 1e6) / 1e6, Math.round(ins.cost * 1e6) / 1e6);
+  assert.deepEqual(lines(insightsCsv(ins, 'tools'))[0], 'tool,calls,errors,avg_ms,max_ms');
+  assert.match(lines(insightsCsv(ins, 'tools')).join('\n'), /^Task,2,0,\d+,\d+$/m);
+
+  // Names come from the logs: a spreadsheet must not run them as formulas, and commas, quotes and line breaks stay in their cell.
+  const files = Array.from({ length: 25 }, (_, i) => ({ path: `/f${i}`, edits: 1, sessions: 1 }));
+  files.push({ path: '=HYPERLINK("http://x","a,b")', edits: 1, sessions: 1 }, { path: '-2+3', edits: 1, sessions: 1 }, { path: '@x\ny', edits: 1, sessions: 1 });
+  const out = lines(insightsCsv({ ...ins, files } as Insights, 'files'));
+  assert.equal(out.length, 29, 'every file, not only the 20 the page shows');
+  assert.deepEqual(out.slice(-3), [`"'=HYPERLINK(""http://x"",""a,b"")",1,1`, "'-2+3,1,1", `"'@x\ny",1,1`]);
 });

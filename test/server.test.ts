@@ -134,6 +134,21 @@ test('insights page renders charts and tables', async () => {
   assert.match(week.body, /No token usage in this range/);
 });
 
+test('insights tables download as CSV with the page filters', async () => {
+  const r = await get('/insights.csv?table=projects&days=7&project=nope');
+  assert.equal(r.status, 200);
+  assert.equal(r.headers['content-type'], 'text/csv; charset=utf-8');
+  assert.match(r.headers['content-disposition'], /attachment; filename="tracelens-projects-7d\.csv"/);
+  assert.equal(r.body, '\uFEFFproject,sessions,input_tokens,output_tokens,cache_write_tokens,cache_read_tokens,estimated_cost_usd\r\n');
+  assert.match((await get('/insights.csv?table=files')).body, /about\.md,/);
+  assert.equal((await get('/insights.csv?table=__proto__')).status, 400);
+  assert.equal((await get('/insights.csv')).status, 400);
+  // The page links each table's CSV with the same range and project.
+  const page = await get(`/insights?days=30&project=${encodeURIComponent('/Users/dev/acme-api')}`);
+  assert.match(page.body, /href="\/insights\.csv\?table=models&amp;days=30&amp;project=%2FUsers%2Fdev%2Facme-api" download aria-label="Download usage by model as CSV">CSV</);
+  assert.equal(page.body.match(/href="\/insights\.csv/g)?.length, 5);
+});
+
 test('export downloads markdown and html, redacted on request', async () => {
   const md = await get(`${SA}/export?format=md&redact=1`);
   assert.equal(md.status, 200);

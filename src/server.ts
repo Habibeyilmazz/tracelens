@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { computeInsights, sessionStats, type SessionStats } from './insights.js';
+import { computeInsights, CSV_TABLES, insightsCsv, sessionStats, type CsvTable, type SessionStats } from './insights.js';
 import { exportMarkdown } from './markdown.js';
 import type { Pricing } from './pricing.js';
 import { redactSession } from './redact.js';
@@ -75,11 +75,16 @@ export function createHandler(store: Store, pricing: Pricing) {
         return send(200, searchPage(q, search(sessions.filter((s) => !project || s.project === project), q), projects, project));
       }
 
-      if (path === '/insights') {
+      if (path === '/insights' || path === '/insights.csv') {
         const days = Number(p.get('days'));
         const project = p.get('project') || undefined;
         const opts = { days: Number.isInteger(days) && days > 0 ? days : undefined, project };
-        return send(200, insightsPage(computeInsights(sessions, pricing, opts), projects, opts));
+        if (path === '/insights') return send(200, insightsPage(computeInsights(sessions, pricing, opts), projects, opts));
+        const table = p.get('table') as CsvTable;
+        if (!CSV_TABLES.includes(table)) return send(400, `table must be one of: ${CSV_TABLES.join(', ')}`, 'text/plain');
+        return send(200, insightsCsv(computeInsights(sessions, pricing, opts), table), 'text/csv; charset=utf-8', {
+          'Content-Disposition': `attachment; filename="tracelens-${table}${opts.days ? `-${opts.days}d` : ''}.csv"`,
+        });
       }
 
       // /session/<project folder>/<id>: ids alone can repeat across project folders.
