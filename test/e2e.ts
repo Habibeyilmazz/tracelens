@@ -119,6 +119,21 @@ test('an unknown session and a broken URL give friendly pages, not a crash', asy
   await page.close();
 });
 
+test('at 320px (400% zoom) no page scrolls sideways, even with every tool call open', async () => {
+  const page = await browser.newPage({ viewport: { width: 320, height: 640 } });
+  await page.goto(BASE + '/');
+  const sessions = await page.locator('td.title a').evaluateAll((as) => as.map((a) => a.getAttribute('href')!));
+  for (const path of ['/', '/insights', '/search?q=test', ...sessions]) {
+    await page.goto(BASE + path);
+    // Strings: this file is compiled without the DOM types. The fixtures' project paths are short; real ones widen the selects.
+    await page.evaluate(`document.querySelectorAll('details').forEach((d) => (d.open = true));
+      document.querySelectorAll('select[name=project]').forEach((s) => s.add(new Option('/Users/someone/code/clients/a-rather-long-project-folder-name')))`);
+    const over = await page.evaluate<number>(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
+    assert.equal(over, 0, `${path} is ${over}px wider than the window`);
+  }
+  await page.close();
+});
+
 test('a running session updates in place and keeps open tool calls open', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'tracelens-e2e-live-'));
   mkdirSync(join(dir, '-Users-dev-live'));

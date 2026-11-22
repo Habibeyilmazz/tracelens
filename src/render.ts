@@ -48,7 +48,8 @@ h2{font-size:1.05rem;margin:2.2rem 0 .3rem}
 h2+p.muted{margin:0 0 .7rem;font-size:.88rem}
 .muted{color:var(--muted)}
 .filters{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:0 0 1rem}
-.filters label{display:flex;gap:.4rem;align-items:center;color:var(--muted);font-size:.9rem}
+.filters label{display:flex;gap:.4rem;align-items:center;color:var(--muted);font-size:.9rem;max-width:100%}
+.filters select{min-width:0;max-width:100%}
 .scroll{overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:8px}
 table{border-collapse:collapse;width:100%}
 th,td{padding:.45rem .7rem;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
