@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed (round 16, performance, accessibility and maintainability pass)
+
+Measured first, on synthetic data only: the 32 demo sessions, 5,000 copies of them in 400 project folders (91 MB), and one generated session with 20,000 tool calls (26 MB log). Chromium via Playwright 1.65.1 on this Mac, one or three runs each.
+
+- Search builds snippets only for sessions that contain every word. Before, the one-pass highlight regex ran over every text of every session before the all-words check, so long queries paid for it on sessions that could never match. On 5,000 sessions: a 160-word query that matches nothing, ~700 ms to ~225 ms; a one-word miss, 40 to 30 ms; `refund decimal`, 50 to 45 ms; a word in every session (`the`), about 10 ms slower (48 to 60 ms), the cost of keeping the session's texts for the second pass.
+- README images: 1.9 MB to 0.9 MB (hero 661 to 308 KB, five screenshots 1.25 MB to 0.57 MB) as 256-colour PNGs; mean pixel difference under 0.02 of 255, no visible change (compared side by side). `scripts/screenshots.mjs` re-palettes the committed shots with ffmpeg when it is installed (it already was for the GIF) and leaves them full colour otherwise.
+- Removed: `docs/screenshots/sessions.png` and `session-dark.png` (655 KB, linked from nowhere). The script still takes them, into the uncommitted `qa/` folder, so their overflow and console checks still run.
+- `fmtDate` and the insights day key share one local-day formatter (`dayKey`, now in `src/format.ts`) instead of two copies.
+
+Numbers for the next round (warm, local server): `tracelens --version` 50 ms; first parse of 5,000 sessions ~480 ms, a rescan ~40 ms (every request pays it: it stats each file); session list 60 to 80 ms on the server, 3.2 MB, 58k DOM nodes, Chromium DOMContentLoaded ~460 ms; search page ~90 ms; insights ~80 ms; CSV ~70 ms. The 20,000-call session: 120 ms on the server, 24 MB of HTML, 440k DOM nodes, DOMContentLoaded ~1.7 s (2.3 s in round 8 on a different generated session); Markdown and redacted HTML export of it 0.86 s each from the CLI.
+
+### Notes for the next person (round 16)
+
+- Accessibility, re-checked by running, nothing to fix: axe-core 4.10.3 (WCAG 2.0/2.1/2.2 A and AA plus best practices, from a temp folder, not the repo) on 39 pages (list, sorted list, search with and without hits, insights, 7-day insights, a 404, 32 sessions including Codex) at 1280px and 390px, light and dark, details closed and all open: 0 violations, including the CSV links added in round 15. Also looked at by hand: the accessibility tree of the insights page (landmarks, headings, labelled selects, CSV links named "Download … as CSV"), and Windows-style forced colours (Chromium `forcedColors: 'active'`, dark): text, focus, chart bars and the `error` flag stay visible; only the decorative duration bars disappear, the duration text stays. No sticky header (so focus cannot be hidden under one) and no animations (so nothing for reduced motion).
+- Not changed on purpose: the 20,000-call page is slow because it is 24 MB of HTML; the markup per call is already lean. Loading tool bodies on demand would break find-in-page in closed `<details>`, hash links from search and the no-JS page, for a size no real session is near. The session list at 5,000 sessions is 0.46 s in Chromium; paging it would be a feature change.
+- Corrected note from round 13: the Markdown renderer is not quadratic in its input. Nesting a list N levels deep takes N² characters of indentation, and the time is linear in that size (9 MB, 0.4 s; 144 MB, 6.2 s).
+- SEO does not apply: the UI only runs on 127.0.0.1, where no search engine can reach it. The README's demo GIF (3.6 MB) was already encoded with a 96-colour palette and changed-rectangle frames; left alone.
+- Lean check: `tsc --noUnusedLocals --noUnusedParameters` is clean; every export is used; the only dependencies are the three dev dependencies (TypeScript, Node types, Playwright). Nothing else to delete was found.
+- Reported gaps re-checked: the Codex second-opinion review hit its usage limit again ("try again at 9:32 AM"), so this round's three code commits were reviewed by hand and by the test suite (123 pass, 1 slow test skipped; E2E 5 pass). The security-review skill was not run (no security-relevant code changed). Safari and Firefox are still untested (only Chromium is installed). No CLI CSV and no slowest-calls CSV, still by choice.
+
 ### Added (round 15, feature: CSV download of the insights tables)
 
 Chosen after using the demo: the insights page is where the numbers are, but nothing on it could leave the page except by copying text like `3.94M` and `$8.01` (rounded, and only the top 20 tools and files). Putting cost per project or per day into a spreadsheet (an expense report, a team budget) is the next thing you want, and it was on the roadmap.
