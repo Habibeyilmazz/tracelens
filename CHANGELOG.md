@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- `file-history-snapshot` records (Claude Code writes one before every prompt) are skipped instead of showing up as "Unrecognized event" rows and as search hits.
+- Locally generated `<synthetic>` assistant messages no longer add a `<synthetic>` row to the per-model insights table.
+- Post-compaction summaries (`isCompactSummary`) are shown as system notes, not as something the user typed.
+- Files that contain only `summary` lines are no longer listed as empty sessions dated "—".
+- Usage with no timestamp anywhere no longer creates a 1970-01-01 day (which stretched the daily charts across decades).
+- The session header's "first error" link now also points at API errors and error-level system events, matching the error count.
+- `tracelens export missing.jsonl` says "file not found" instead of "No session matches".
+- `export -o` refuses any `.jsonl` output path, so a log opened by path outside `--dir` (or its subagent files) cannot be overwritten.
+
+### Changed
+
+- README and `pricing.json` say that rates are flat per model (Claude Haiku 5.5's higher rate above 100K-token prompts is not modelled).
+
+### Notes for the next person (round 1, first-run review)
+
+- Fresh clone + README quickstart verified: `npm install`, `npm run build`, `serve` (empty-state page when `~/.claude/projects` is missing), `npm run demo`, `list`, `export`, and the Playwright screenshot script all work. `npm run demo -- --no-open` avoids opening a browser.
+- Still never run on a real Claude Code log. Record types handled specially above were chosen from the documented/known 2.x layout, not observed; `progress` and `queue-operation` records, if present, still render raw.
+- Scale check with synthetic data: 1.4 GB of logs (1,500 sessions) took 1.8 s to parse, ~0.9 s per search and ~1.8 GB of memory. Everything is held in memory, so multi-GB histories will need streaming or an index.
+- Pricing table checked against the current list prices; all rows matched.
+
 ## [0.1.0] - 2026-11-22
 
 ### Added
