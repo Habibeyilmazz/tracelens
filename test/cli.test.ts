@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +53,16 @@ test('export refuses to write into the log folder and leaves logs untouched', ()
   const self = run('export', log, '--dir', tmpdir(), '-o', log);
   assert.equal(self.status, 1);
   assert.match(self.stderr, /refusing to write/);
+  // nor through a symlink that points at a log
+  const tmp = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    symlinkSync(log, join(tmp, 'export.md'));
+    const viaLink = run('export', A, '--dir', FIXTURES, '-o', join(tmp, 'export.md'));
+    assert.equal(viaLink.status, 1);
+    assert.match(viaLink.stderr, /refusing to write/);
+  } finally {
+    rmSync(tmp, { recursive: true });
+  }
   assert.equal(statSync(log).mtimeMs, before);
 });
 

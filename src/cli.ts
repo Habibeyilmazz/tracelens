@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, relative, resolve, isAbsolute } from 'node:path';
+import { basename, dirname, join, relative, resolve, isAbsolute } from 'node:path';
 import { parseArgs } from 'node:util';
 import { filesForPath, parseSession } from './claude.js';
 import { fmtDate, fmtDuration, fmtUSD, oneLine, shortPath } from './format.js';
@@ -103,9 +103,11 @@ async function main(argv: string[]) {
     const shown = o.redact ? redactSession(session) : session;
     const text = format === 'html' ? exportHtml(shown, st) : exportMarkdown(shown, st);
     if (!o.output) return void process.stdout.write(text);
-    const out = resolve(o.output);
-    // Read-only guarantee: never write into the log folder or over the transcript itself.
-    const rel = relative(dir, out);
+    // Read-only guarantee: never write into the log folder or over a log. Compare real paths, so a
+    // symlink (to a log, or to a folder inside the log folder) cannot get around the check.
+    const real = (p: string): string => (existsSync(p) ? realpathSync(p) : join(real(dirname(p)), basename(p)));
+    const out = real(resolve(o.output));
+    const rel = relative(real(dir), out);
     // A .jsonl target may live outside --dir, so also refuse any .jsonl output (it could be that log or a subagent's).
     if (out.endsWith('.jsonl') || (rel && !rel.startsWith('..') && !isAbsolute(rel)))
       throw new Error(`refusing to write inside the log folder (${dir}) or to a .jsonl file; choose another --output path`);
