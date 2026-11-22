@@ -16,18 +16,21 @@ export const isRollout = (path: string) => /^rollout-.*\.jsonl$/.test(basename(p
 export const codexArchive = (dir: string) => (basename(dir) === 'sessions' ? join(dirname(dir), 'archived_sessions') : undefined);
 
 export function discoverCodex(dir: string): SessionFiles[] {
-  return [dir, codexArchive(dir)].flatMap((d) => {
-    let names: string[];
-    try {
-      names = d ? readdirSync(d, { recursive: true, encoding: 'utf8' }) : [];
-    } catch {
-      return [];
-    }
-    return names
-      .filter(isRollout)
-      .sort()
-      .map((name) => ({ id: idFromName(name), main: join(d!, name), subagents: [] }));
-  });
+  return [dir, codexArchive(dir)].flatMap((d) =>
+    (d ? rollouts(d) : []).sort().map((main) => ({ id: idFromName(main), main, subagents: [] })),
+  );
+}
+
+// Not readdirSync's recursive mode: it follows symlinked folders, so a link back up (2026/up -> ..) listed
+// every session dozens of times. Like the Claude Code adapter, only real folders and files count.
+function rollouts(dir: string): string[] {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries.flatMap((e) => (e.isDirectory() ? rollouts(join(dir, e.name)) : e.isFile() && isRollout(e.name) ? [join(dir, e.name)] : []));
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;

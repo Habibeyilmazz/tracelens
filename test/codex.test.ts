@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -282,5 +282,18 @@ test('archived Codex sessions (archived_sessions next to sessions/) are read too
     assert.deepEqual(discoverCodex(join(home, 'archived_sessions', '..', 'other')), []);
   } finally {
     rmSync(home, { recursive: true });
+  }
+});
+
+test('a symlinked folder inside the sessions folder is not followed (a link back up listed each session 33 times)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-codex-loop-'));
+  try {
+    const name = `rollout-2026-11-19T09-00-00-${C}.jsonl`;
+    mkdirSync(join(dir, '2026'));
+    copyFileSync(join(CODEX_FIXTURES, '2026', '11', '19', name), join(dir, '2026', name));
+    symlinkSync('..', join(dir, '2026', 'up'));
+    assert.deepEqual(discoverCodex(dir).map((f) => f.main), [join(dir, '2026', name)]);
+  } finally {
+    rmSync(dir, { recursive: true });
   }
 });
