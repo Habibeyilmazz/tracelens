@@ -28,7 +28,7 @@ No logs on this machine, or want to look first? `npm run demo` generates 25 made
 
 - **Claude Code and Codex CLI** sessions side by side in one list, one search and one set of insights. Codex sessions carry a "Codex" tag.
 - **Session list**: project, start time, duration, models, token totals, estimated cost, tool calls and errors. Filter by project, sort by date, duration, tokens or cost.
-- **Full-text search** across every prompt, reply, tool input and tool output, including subagents. Each hit links to the exact spot in the transcript.
+- **Full-text search** across every prompt, reply, tool input and tool output, including subagents. Type the words you remember: a session is found when it contains all of them, in any order and in any message (in the demo data, `refund decimal` finds the sessions about a refunds endpoint that fails on amounts with more than two decimals). Put `"quotes"` around an exact phrase. Case is ignored. Each word is highlighted, results can be narrowed to one project, and each hit links to the exact spot in the transcript.
 - **Transcript view**: user turns, assistant replies rendered as Markdown (headings, lists, tables, code blocks; links only for http(s), images never loaded), collapsible thinking, tool calls collapsed to one line (tool, main argument, duration bar) that expand to full input and output (on the page, a text block over 40,000 characters is cut with a note saying how much is left; exports keep everything). Subagent runs are nested under the Task call that started them. Failed tool calls and API errors are marked in red, and the header links to the first error.
 - **Live sessions**: open a session that is still running (any session with activity in the last hour) and it follows the log as the agent works: new messages and tool calls, subagent steps and updated token totals appear within about 2 seconds, tool calls you opened stay open, and if you are at the bottom the page follows the end. It polls only while the tab is visible.
 - **Insights**: tokens and estimated cost per day, per project and per model; most-used tools with error counts and timings; the slowest tool calls; the files edited most often. Filter by time range and project.
@@ -42,6 +42,8 @@ No logs on this machine, or want to look first? `npm run demo` generates 25 made
 ![A Codex session: the injected context collapsed, timed shell calls, an apply_patch call opened to show the patch, and a failed test run marked in red](docs/screenshots/session-codex.png)
 
 ![The end of a transcript: tool calls with timing bars, a failed Bash call marked in red, and the final reply rendered as Markdown](docs/screenshots/session-reply.png)
+
+![Search for "refund decimal": the sessions that contain both words, with both highlighted in each snippet, and a project filter](docs/screenshots/search.png)
 
 ![Insights page: tokens and estimated cost per day, and usage by project](docs/screenshots/insights.png)
 

@@ -57,7 +57,8 @@ if (codexHref) {
   await shoot('qa/session-codex-mobile-dark', codexHref, { width: 390, height: 844, scheme: 'dark', before: openCalls });
 } else problems.push('no Codex session in the list (run the demo with --codex-dir)');
 await shoot('qa/sessions-mobile-dark', '/', { width: 390, height: 844, scheme: 'dark' });
-await shoot('search', '/search?q=config.timeoutMs');
+await shoot('search', '/search?q=refund+decimal');
+await shoot('qa/search-mobile', '/search?q=refund+decimal', { width: 390, height: 844 });
 await shoot('session-dark', href, { scheme: 'dark', before: (p) => p.locator('[data-toggle=open]').click() });
 await shoot('qa/insights-dark', '/insights', { scheme: 'dark' });
 await shoot('qa/sessions-mobile', '/', { width: 390, height: 844 });

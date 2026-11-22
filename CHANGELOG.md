@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (round 12, feature: search by several words)
+
+Chosen after using the demo as a newcomer: searching for the words you remember (`refund decimal`, `dark mode chart`) found nothing, because search matched the whole query as one exact string, even though those sessions were in the list. Finding a past session is what search is for, so this hurt most.
+
+- A query is now a set of words: a session is a hit when it contains every word somewhere, in any order and in any message, tool input or output (case is still ignored). `"quoted phrases"` match exactly, across any run of whitespace. Quote marks are syntax, so a literal `"` cannot be searched for. Repeated words count once.
+- Snippets mark every word, not just the one that started the snippet. Words that sit within one snippet's text are merged into it instead of repeating the same line once per word, and each word gets at least one snippet even when another word fills the first five. "and N more in this session" now counts only matches not visible in the snippets.
+- The search page has a Project select (`/search?q=…&project=…`); editing the query in the header box keeps that scope. The no-results message says what the search needs.
+- Tests: query parsing, all-words matching (including a word that only occurs inside a longer one, `refund refunds`), phrases across line breaks, snippet merging and the per-word guarantee, the project scope over HTTP, and an E2E step that searches two words and picks a project in Chromium. Existing tests that relied on an unquoted multi-word query being an exact phrase now quote it.
+- Speed on ~5,000 sessions (the 32 demo sessions repeated, in memory, one run on this Mac): 22 to 32 ms per query, against 17 to 25 ms for the old exact-substring search.
+- `docs/screenshots/search.png` re-taken from the running demo (`refund decimal`) and shown in the README; `scripts/screenshots.mjs` also checks the search page at 390px.
+
+### Notes for the next person (round 12)
+
+- Reported gaps re-checked: none is a bug. The security-review skill still cannot run (the agent session does not start inside the repo), Safari and Firefox are still untested (only Chromium is installed), axe was not re-run (the only new control is a labelled `<select>` like the one on the session list), and `docs/demo.gif` was not re-recorded (its single-word `timeout` search looks the same).
+- Results are still ranked by match count. Ranking by recency or by how close the words are would be the next step if a long session that mentions a word fifty times keeps burying the one you want.
+
 ### Security (round 11, security pass)
 
 Reviewed by hand (the security-review skill needs the session to start inside a git repo, and this one does not): server, renderers, both exporters, redaction, CLI paths, CI workflow, git history, dependencies.
