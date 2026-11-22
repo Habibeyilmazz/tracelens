@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed (round 5, reliability pass: each bug reproduced, then a failing test, then the fix)
+
+- A single record nested 100,000 levels deep made its whole session disappear ("Maximum call stack size exceeded"). Records nested more than 200 levels deep are now shown as an "Unreadable line"; the same check covers Codex `function_call` arguments, which are a JSON string parsed later.
+- A timestamp in the year 9999 made the insights page loop until the server ran out of memory ("10000-01-01" sorts before "9999-12-31"). Timestamps outside 2000-2099 are ignored, which also keeps junk dates from stretching durations and charts.
+- Session files over 512 MB were skipped ("Cannot create a string longer than…"). Lines are now split from the bytes, so files up to 2 GB load; the raw text of a line is only kept when it cannot be parsed.
+- Redacted exports failed with a 500 when one string held an unbroken run of several million characters (a base64url blob): the secret patterns overflowed the regex backtrack stack. Such a string is now replaced whole by a "too long to check for secrets" note: over-redacted, never leaked.
+- A byte-order mark at the start of a log made line 1 unreadable (no title, no project), and one at the start of `pricing.json` (Windows Notepad) stopped tracelens from starting.
+- Titles and one-line labels could cut an emoji in half and show "�".
+- A Codex `session_meta` id holding a lone surrogate made the whole session list return 500; ids taken from inside a rollout must now be plain ids (letters, digits, `_`, `.`, `-`, not starting with `.`), else the file-name id is kept. "." and ".." are refused because browsers fold them out of the URL.
+- Token counts of a trillion or more (e.g. `1e308`) are ignored instead of making every cost `$Infinity`.
+- `export -o` on a case-insensitive disk (macOS, Windows): `-o log.JSONL` overwrote `log.jsonl` when the log was opened by path, and `-o ~/.CLAUDE/projects/x.md` wrote into the log folder. The `.jsonl` check ignores case and paths are compared with the native realpath. `-o x.HTML` / `x.htm` now export HTML.
+- `tracelens list` printed escape sequences from prompts straight to the terminal (window title, colours, OSC 52 clipboard writes); control characters are dropped.
+
+### Added (round 5)
+
+- Codex archived sessions: `archived_sessions/` next to the sessions folder is read too (only when `--codex-dir` is named `sessions`, as the default is), and `export -o` refuses to write into it.
+- `npm run test:e2e`: a Playwright test that starts `tracelens serve` from the CLI on the fixtures and walks the main journey in Chromium (list, sort, session, failing tool call, search into a subagent step, insights, redacted Markdown download). CI runs it in its own job. `npm test` stays browser-free (~2 s).
+- `test/robustness.test.ts` collects this round's odd-input cases. `TRACELENS_SLOW_TESTS=1 npm test` adds the 600 MB file case.
+
+### Notes for the next person (round 5)
+
+- How the bugs were found: a hand-made set of nasty files (empty, whitespace-only, BOM, CRLF, scalars, deep nesting, junk values, emoji titles, odd ids and folder names, DST-spanning and far-future dates, 20 MB tool output) pushed through `list`, every server page and both exports; a throwaway mutation fuzzer (1,500 mutated copies of the fixtures per seed, 5 seeds, through parse, every renderer, redaction, search and insights; not kept); the suite run under other time zones; and a Codex review (`codex exec -s read-only`) of the round's diff, which found the "."/".." ids and the nested Codex arguments.
+- Checked and fine: daily buckets across DST changes (Santiago, Lord Howe, Havana, Tehran) and the skipped day in Apia 2011; CRLF line endings; symlinked log roots; an empty or missing log folder on every page; port in use; a 20,000-call session (server renders in 45 ms, Chromium loads the 20 MB page in about 2 s). The suite pins `TZ=UTC` on purpose: under UTC+14 two insights tests fail because the fixture days shift, which is the intended local-day behaviour, not a bug.
+- Codex format: every event and item type name tracelens handles was checked to be present in the strings of the installed Codex CLI binary (0.171.0-alpha), including `archived_sessions`. Still never run on a real rollout log. Codex `history.jsonl` (the prompt history) is deliberately not read: it holds no transcripts. The long-context price tier is still not modelled (documented in `pricing.json`).
+- Known, not fixed: in Chromium the hash link from a search hit opens the surrounding `<details>` by itself, so the E2E test cannot tell whether `app.js` `reveal()` still works; other browsers rely on it. Files over 2 GB are still skipped with a warning (Node's `readFileSync` limit); streaming would fix it. A session whose last line is being written while you look shows it as "Unreadable line" until the next reload.
+
 ### Added (round 4, feature: Codex CLI adapter)
 
 - Codex CLI sessions are read next to Claude Code ones: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (or `$CODEX_HOME/sessions`, or `--codex-dir <path>`). They appear in the same session list (tagged "Codex"), search, insights and exports, and `tracelens export` takes a rollout file path. New module `src/codex.ts`.
