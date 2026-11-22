@@ -42,6 +42,7 @@ input[type=checkbox]{accent-color:var(--accent);width:1rem;height:1rem;margin:0}
 button{cursor:pointer;background:var(--panel)}
 button:hover,select:hover{border-color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tx :focus-visible{outline-offset:-2px} /* rows clip paint (content-visibility), so draw the ring inside */
 main{max-width:1180px;margin:0 auto;padding:1.25rem 1rem 4rem}
 h1{font-size:1.4rem;line-height:1.3;margin:.2rem 0 .9rem;letter-spacing:-.01em;overflow-wrap:anywhere}
 h2{font-size:1.05rem;margin:2.2rem 0 .3rem}
@@ -50,9 +51,11 @@ h2+p.muted{margin:0 0 .7rem;font-size:.88rem}
 .filters{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:0 0 1rem}
 .filters label{display:flex;gap:.4rem;align-items:center;color:var(--muted);font-size:.9rem;max-width:100%}
 .filters select{min-width:0;max-width:100%}
-.scroll{overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:8px}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;--sh:color-mix(in srgb,var(--ink) 22%,transparent);
+background:linear-gradient(to right,var(--panel) 40%,transparent) left/2rem 100% no-repeat local,linear-gradient(to left,var(--panel) 40%,transparent) right/2rem 100% no-repeat local,
+radial-gradient(farthest-side at 0 50%,var(--sh),transparent) left/.8rem 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,var(--sh),transparent) right/.8rem 100% no-repeat scroll,var(--panel)}
 table{border-collapse:collapse;width:100%}
-th,td{padding:.45rem .7rem;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th,td{padding:.45rem .7rem;border-bottom:1px solid var(--rule);text-align:left;vertical-align:baseline}
 th{font-weight:600;color:var(--muted);font-size:.82rem;white-space:nowrap}
 th a{color:inherit}
 tr:last-child td{border-bottom:0}
@@ -153,7 +156,8 @@ table.list td{display:block;border:0;padding:0;text-align:left}
 table.list td.title{order:-1;flex-basis:100%;min-width:0;margin-bottom:.15rem}
 table.list td.when{flex-basis:100%;color:var(--muted);font-size:.85rem}
 table.list td.num::before{content:attr(data-label) " ";color:var(--muted);font-size:.8rem;font-weight:400}}
-@media (max-width:640px){.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:3px 0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
+@media (max-width:640px){.row,.subagent .row{grid-template-columns:2.9rem minmax(0,1fr);gap:.4rem}.row>.t{font-size:11px}.top form{margin-left:0;max-width:none}}
+@media (max-width:560px){.chart text{font-size:16px}}
 `;
 
 // Opens the collapsed ancestors of a linked item, and wires the expand/collapse buttons.
@@ -398,7 +402,11 @@ function barChart(rows: Row[], value: (r: Row) => number, fmt: (n: number) => st
     .join('');
   const ticks = [0, Math.floor((rows.length - 1) / 2), rows.length - 1]
     .filter((v, i, a) => a.indexOf(v) === i && rows[v])
-    .map((i) => `<text x="${(L + i * step + step / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(rows[i].key.slice(5))}</text>`)
+    // The end labels are anchored inside the plot so they are not cut off when phones enlarge the text.
+    .map((i, _, a) => {
+      const [x, anchor] = a.length > 1 && i === 0 ? [L, 'start'] : a.length > 1 && i === rows.length - 1 ? [W, 'end'] : [L + i * step + step / 2, 'middle'];
+      return `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${anchor}">${esc(rows[i].key.slice(5))}</text>`;
+    })
     .join('');
   return `<figure class="chart" style="margin:0"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}, ${rows.length} days, peak ${esc(fmt(max))}">
 <line x1="${L}" x2="${W}" y1="${y(max)}" y2="${y(max)}"/><line x1="${L}" x2="${W}" y1="${H - B}" y2="${H - B}"/>
@@ -453,7 +461,7 @@ ${ins.slowest
 
   const filesTable = ins.files.length
     ? `<div class="scroll" tabindex="0" role="region" aria-label="Files edited most often"><table><thead><tr><th>File</th><th class="num">Edits</th><th class="num">Sessions</th></tr></thead><tbody>
-${ins.files.map((f) => `<tr><td class="mono" title="${esc(f.path)}">${esc(shortPath(f.path))}</td><td class="num">${f.edits}</td><td class="num">${f.sessions}</td></tr>`).join('')}</tbody></table></div>`
+${ins.files.map((f) => `<tr><td class="mono" title="${esc(f.path)}">${esc(shortPath(f.path)).replaceAll('/', '/<wbr>')}</td><td class="num">${f.edits}</td><td class="num">${f.sessions}</td></tr>`).join('')}</tbody></table></div>`
     : `<p class="empty">No file edits in this range.</p>`;
 
   const body = `<h1>Insights</h1>

@@ -90,7 +90,7 @@ export function createHandler(store: Store, pricing: Pricing) {
           return send(400, 'Bad session id', 'text/plain');
         }
         const s = sessions.find((x) => x.id === id && folderOf(x) === folder);
-        if (!s) return send(404, page('Not found', `<h1>Session not found</h1><p>No session with id <code>${esc(id)}</code> in <code>${esc(folder)}</code>. It may have been deleted. <a href="/">Back to sessions</a></p>`, 'session'));
+        if (!s) return send(404, page('Not found', `<h1>Session not found</h1><p class="empty">No session with id <code>${esc(id)}</code> in <code>${esc(folder)}</code>. It may have been deleted. <a href="/">Back to sessions</a></p>`, 'session'));
         if (!m[3]) {
           // The live view polls with If-None-Match: a 304 costs a stat of the session's files, not a render.
           const etag = `"${createHash('sha1').update(salt + store.signatureOf(s)).digest('base64url')}"`;
@@ -106,7 +106,7 @@ export function createHandler(store: Store, pricing: Pricing) {
         });
       }
 
-      return send(404, page('Not found', `<h1>Page not found</h1><p><a href="/">Back to sessions</a></p>`, 'sessions'));
+      return send(404, page('Not found', `<h1>Page not found</h1><p class="empty">There is no tracelens page at this address. <a href="/">Back to sessions</a></p>`, 'sessions'));
     } catch (err) {
       console.error(err);
       if (!res.headersSent)

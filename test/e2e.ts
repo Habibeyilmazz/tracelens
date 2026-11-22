@@ -134,6 +134,21 @@ test('at 320px (400% zoom) no page scrolls sideways, even with every tool call o
   await page.close();
 });
 
+test('the keyboard focus ring on transcript controls is not clipped by the row', async () => {
+  const page = await open('/');
+  await page.locator('td.title a').first().click();
+  // Transcript rows use content-visibility, which clips painting to the row: a ring drawn outside it is cut off.
+  for (const sel of ['.tx > .row > .t', '.tx details.tool > summary']) {
+    const el = page.locator(sel).first();
+    await el.focus();
+    const out = await el.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); const cs = getComputedStyle(el);
+      const grow = parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth); const r = el.getBoundingClientRect(); const row = el.closest('.tx > .row').getBoundingClientRect();
+      return el.matches(':focus-visible') && cs.outlineStyle !== 'none' ? Math.max(row.top - (r.top - grow), r.bottom + grow - row.bottom, row.left - (r.left - grow), r.right + grow - row.right) : NaN; })()`);
+    assert.ok((out as number) <= 0, `${sel}: focus ring reaches ${out}px outside its row`);
+  }
+  await page.close();
+});
+
 test('a running session updates in place and keeps open tool calls open', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'tracelens-e2e-live-'));
   mkdirSync(join(dir, '-Users-dev-live'));
