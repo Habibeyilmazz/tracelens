@@ -114,7 +114,7 @@ details[open]>summary::before{content:"▾"}
 .dur{margin-left:auto;display:flex;align-items:center;gap:.45rem;font:12px var(--mono);color:var(--faint);white-space:nowrap}
 .bar{display:inline-block;height:6px;border-radius:3px;background:var(--tool);min-width:2px}
 .tool.error{border-left-color:var(--err)}
-.tool.error .tname{color:var(--err)}
+.tool.error .tname{color:var(--err)}.tool.error>summary:hover{background:var(--err-soft)}
 .flag{font:600 11px var(--sans);color:var(--err);border:1px solid var(--err);border-radius:4px;padding:0 .3rem}
 .io{padding:.1rem .75rem .75rem}
 .io .lbl{font-size:.76rem;color:var(--muted);margin:.6rem 0 .25rem;font-weight:600}
