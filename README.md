@@ -6,7 +6,7 @@
 
 tracelens turns the JSONL logs these agents already write into a session list, a full-text search, readable transcripts with every tool call, and a page of token and cost estimates. It runs on your machine, binds to 127.0.0.1, only reads the log files, sends nothing anywhere, and has no runtime dependencies.
 
-![Recorded from the demo data: the session list, a transcript with a nested subagent, a search for "timeout" that jumps to the hit, and the insights tables](docs/demo.gif)
+![Recorded from the demo data: the session list, a transcript with a nested subagent, a search for the two words "refund decimal" that jumps to the hit, and the insights tables](docs/demo.gif)
 
 ## Quickstart
 

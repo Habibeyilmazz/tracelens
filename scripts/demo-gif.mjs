@@ -33,7 +33,7 @@ await pause(800);
 const search = page.getByRole('searchbox', { name: 'Search all sessions' });
 await page.evaluate(() => scrollTo(0, 0));
 await search.click();
-await search.pressSequentially('timeout', { delay: 90 });
+await search.pressSequentially('refund decimal', { delay: 90 });
 await search.press('Enter');
 await page.waitForLoadState();
 await pause(1800);
