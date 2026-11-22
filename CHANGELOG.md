@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed (round 14, launch pass)
+
+- `docs/demo.gif`, the first thing the README shows, was recorded in round 6 and no longer matched the app: its search for `timeout` showed tool inputs as escaped JSON and no project filter. Re-recorded from the running demo with `scripts/demo-gif.mjs`, which now types the two-word search `refund decimal` (the README's own example). Frames checked by eye.
+- Everything else the launch checklist asks for was already there and true, so it was left alone: pitch, hero image, quickstart, feature list, how it works, comparison with ccusage, claude-code-log, Claude Code's own commands and tracing platforms, roadmap, CONTRIBUTING.md, SECURITY.md, three issue templates, repo description and topics.
+
+### Notes for the next person (round 14)
+
+- Checked by running: a fresh clone of `main` from GitHub, `npm install`, `npm run build`, `serve` on empty log folders (empty state, no crash) and `list`; `npm test` (121 pass, 1 skipped slow test). Axe-core 4.10.3 (WCAG 2.0/2.1/2.2 A and AA plus best practices, installed in a temp folder, not the repo) on 15 pages (list, sorted list, search with hits and without, insights, 7-day insights, both not-found pages, six Claude Code sessions, one Codex session) at 1280px and 390px, light and dark, details closed and all open: 0 violations. Axe has to be injected with CSP bypassed; the page's `script-src 'self'` blocks it otherwise, as intended.
+- Reported gaps re-checked, none is a bug worth code here: `..jsonl`/`.jsonl` file names still cannot be opened (browsers fold dot segments, `%2E` included; Claude Code names files by UUID). A ~160-word search is still ~1.4 s; a query is capped at 500 characters, so that is the worst case, on a local server. If it matters, test each word's presence first and run the one-pass highlight regex only on sessions that contain every word. The Codex review hit its usage limit again ("try again at 9:32 AM"). The security-review skill was not run (this round changed a GIF, a script argument and alt text). Safari and Firefox are still untested: only Chromium is downloaded here.
+
 ### Fixed (round 13, reliability pass: each bug reproduced, then a failing test, then the fix)
 
 - Numbers that round into the next unit: a 59.6 s tool call showed as `60s`, 999.6 ms as `1000ms`, 999,999 tokens as `1000k`, $99.996 as `$100.00`. They now read `1m 00s`, `1.0s`, `1.00M`, `$100`.
