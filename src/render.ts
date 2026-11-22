@@ -58,8 +58,9 @@ td.title a:hover{text-decoration:underline}
 .chip{display:inline-block;font-size:.78rem;padding:0 .4rem;border-radius:4px;border:1px solid var(--rule);margin:0 .2rem .15rem 0;white-space:nowrap}
 .bad{color:var(--err);font-weight:600}
 code,.mono{font-family:var(--mono);font-size:.86em}
-.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:.7rem 1.4rem;margin:0 0 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:.8rem 1rem}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.7rem 1rem;margin:0 0 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:.8rem 1rem}
 .meta div{min-width:0}
+.meta .wide{grid-column:span 2}
 .meta dt{font-size:.78rem;color:var(--muted)}
 .meta dd{margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 1.2rem}
@@ -71,11 +72,11 @@ code,.mono{font-family:var(--mono);font-size:.86em}
 .row>.t:hover{color:var(--accent)}
 .role{font-size:.76rem;font-weight:600;color:var(--muted);margin:0 0 .15rem}
 .msg{white-space:pre-wrap;overflow-wrap:anywhere;padding:.5rem .8rem;border-radius:8px}
-.user .msg{background:var(--accent-soft);border-left:3px solid var(--accent)}
-.assistant .msg{background:var(--panel);border:1px solid var(--rule)}
+.k-user .msg{background:var(--accent-soft);border-left:3px solid var(--accent)}
+.k-assistant .msg{background:var(--panel);border:1px solid var(--rule)}
 .error .msg{border:1px solid var(--err);background:var(--err-soft)}
-.system .msg{color:var(--muted);font-size:.86rem;padding:.15rem .8rem}
-.system.error .msg{color:var(--err)}
+.k-system .msg{color:var(--muted);font-size:.86rem;padding:.15rem .8rem}
+.k-system.error .msg{color:var(--err)}
 details>summary{cursor:pointer;list-style:none}
 details>summary::-webkit-details-marker{display:none}
 details>summary::before{content:"▸";display:inline-block;width:.9em;color:var(--faint);font-size:.8rem}
@@ -99,7 +100,7 @@ pre{margin:0;padding:.55rem .7rem;background:var(--bg);border:1px solid var(--ru
 .subagent .row{grid-template-columns:3.1rem minmax(0,1fr)}
 .quiet>summary{color:var(--muted);font-size:.86rem;padding:.25rem 0}
 .quiet>pre,.quiet>.msg{margin-top:.2rem}
-.thinking .msg{color:var(--muted);font-style:italic;border-left:3px solid var(--rule)}
+.k-thinking .msg{color:var(--muted);font-style:italic;border-left:3px solid var(--rule)}
 .row:target>.c,.row.flash>.c{outline:2px solid var(--mark);outline-offset:3px;border-radius:8px}
 mark{background:var(--mark);color:inherit;border-radius:2px}
 .hits{list-style:none;padding:0;margin:0}
@@ -148,6 +149,9 @@ function tokensCell(u: Usage): string {
   const t = `Input ${u.input.toLocaleString('en-US')}\nOutput ${u.output.toLocaleString('en-US')}\nCache write ${u.cacheWrite.toLocaleString('en-US')}\nCache read ${u.cacheRead.toLocaleString('en-US')}`;
   return `<td class="num" title="${esc(t)}">${fmtTokens(totalTokens(u))}</td>`;
 }
+
+// Collapses whitespace but keeps it at the edges, so a snippet still reads around its <mark>.
+const flat = (s: string) => s.replace(/\s+/g, ' ');
 
 const costText = (st: { cost: number; unpriced: boolean }) => fmtUSD(st.cost) + (st.unpriced ? '*' : '');
 
@@ -204,7 +208,7 @@ export function searchPage(q: string, hits: Hit[]): string {
 <ol>${h.matches
         .map(
           (m) =>
-            `<li><a href="${href}#i-${m.n}"><span class="where">${esc(m.where)}</span><span class="snip">${esc(oneLine(m.before, 200))}<mark>${esc(m.match)}</mark>${esc(oneLine(m.after, 200))}</span></a></li>`,
+            `<li><a href="${href}#i-${m.n}"><span class="where">${esc(m.where)}</span><span class="snip">${esc(flat(m.before))}<mark>${esc(m.match)}</mark>${esc(flat(m.after))}</span></a></li>`,
         )
         .join('')}${more}</ol></li>`;
     })
@@ -232,7 +236,7 @@ ${field('Models', s.models.map((m) => esc(shortModel(m))).join(', ') || '—')}
 ${field('Tokens in / out', `${fmtTokens(u.input)} / ${fmtTokens(u.output)}`)}
 ${field('Cache write / read', `${fmtTokens(u.cacheWrite)} / ${fmtTokens(u.cacheRead)}`)}
 ${field('Estimated cost', costText(st))}${field('Tool calls', String(st.tools))}${field('Errors', errors)}
-${field('Session id', `<code>${esc(s.id)}</code>`)}</dl>`;
+<div class="wide"><dt>Session id</dt><dd><code>${esc(s.id)}</code></dd></div></dl>`;
 }
 
 export function sessionPage(s: Session, st: SessionStats): string {
@@ -276,14 +280,14 @@ function renderItems(items: Item[], ctx: Ctx): string {
 }
 
 function subagent(sa: Subagent, ctx: Ctx): string {
-  return `<div class="subagent"><div class="role">Subagent <code>${esc(sa.id)}</code> · ${sa.items.length} steps</div>${renderItems(sa.items, ctx)}</div>`;
+  return `<div class="subagent"><div class="role">Subagent <code>${esc(sa.id)}</code> · ${sa.items.length} ${sa.items.length === 1 ? 'step' : 'steps'}</div>${renderItems(sa.items, ctx)}</div>`;
 }
 
 function row(it: Item, ctx: Ctx): string {
   const offset = ctx.s.start && it.ts ? fmtOffset(it.ts - ctx.s.start) : '';
   const time = `<a class="t" href="#i-${it.n}" title="${esc(fmtDate(it.ts))}">${offset}</a>`;
   const err = (it.kind === 'tool' && it.isError) || ((it.kind === 'assistant' || it.kind === 'system') && it.error);
-  return `<div class="row ${it.kind}${err ? ' error' : ''}" id="i-${it.n}">${time}<div class="c">${body(it, ctx)}</div></div>`;
+  return `<div class="row k-${it.kind}${err ? ' error' : ''}" id="i-${it.n}">${time}<div class="c">${body(it, ctx)}</div></div>`;
 }
 
 function body(it: Item, ctx: Ctx): string {
@@ -318,7 +322,7 @@ export interface InsightsQuery {
 }
 
 function barChart(rows: Row[], value: (r: Row) => number, fmt: (n: number) => string, label: string): string {
-  const W = 760, H = 170, L = 52, B = 22, T = 8;
+  const W = 480, H = 190, L = 50, B = 22, T = 8;
   const max = Math.max(...rows.map(value), 0);
   const step = (W - L) / Math.max(rows.length, 1);
   const bw = Math.max(1, Math.min(28, step * 0.72));

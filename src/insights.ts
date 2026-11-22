@@ -148,7 +148,7 @@ export function computeInsights(all: Session[], pricing: Pricing, opts: InsightO
     tools: [...tools.values()]
       .map(({ timed: n, totalMs, ...t }) => ({ ...t, avgMs: n ? totalMs / n : 0 }))
       .sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name)),
-    slowest: timed.sort((a, b) => b.call.durationMs! - a.call.durationMs!).slice(0, 15),
+    slowest: timed.sort((a, b) => b.call.durationMs! - a.call.durationMs!).slice(0, 10),
     files: [...files.entries()]
       .map(([path, f]) => ({ path, edits: f.edits, sessions: f.ids.size }))
       .sort((a, b) => b.edits - a.edits || a.path.localeCompare(b.path))
