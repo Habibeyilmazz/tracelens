@@ -180,3 +180,37 @@ test('store re-parses only changed files', () => {
     rmSync(dir, { recursive: true });
   }
 });
+
+test('repeated identical Task prompts get their subagents in time order', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    mkdirSync(join(dir, 'p', 's', 'subagents'), { recursive: true });
+    const at = (sec: number) => `2026-01-01T00:00:${String(sec).padStart(2, '0')}Z`;
+    const task = (id: string, sec: number) =>
+      JSON.stringify({ type: 'assistant', timestamp: at(sec), message: { id, model: 'm', content: [{ type: 'tool_use', id, name: 'Task', input: { prompt: 'Find usages' } }] } });
+    writeFileSync(join(dir, 'p', 's.jsonl'), [task('t1', 1), task('t2', 20)].join('\n') + '\n');
+    // File names sort the later run first, so name order alone would swap them.
+    const agent = (name: string, sec: number) =>
+      writeFileSync(join(dir, 'p', 's', 'subagents', `${name}.jsonl`), JSON.stringify({ type: 'user', isSidechain: true, agentId: name, timestamp: at(sec), message: { content: 'Find usages' } }) + '\n');
+    agent('agent-a-late', 21);
+    agent('agent-b-early', 2);
+    const [s] = new Store(dir).sessions();
+    const calls = sessionToolCalls(s).filter((c) => c.name === 'Task');
+    assert.deepEqual(calls.map((c) => c.subagent?.id), ['agent-b-early', 'agent-a-late']);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
+test('a loose agent file whose first line is over 64 KiB is still attached', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    mkdirSync(join(dir, 'p'));
+    writeFileSync(join(dir, 'p', 's.jsonl'), JSON.stringify({ type: 'user', sessionId: 's', message: { content: 'hi' } }) + '\n');
+    const big = JSON.stringify({ type: 'user', isSidechain: true, message: { content: 'x'.repeat(200_000) }, sessionId: 's' });
+    writeFileSync(join(dir, 'p', 'agent-big.jsonl'), big + '\n' + big + '\n');
+    assert.equal(discover(dir)[0].subagents.length, 1);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});

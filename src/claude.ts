@@ -75,10 +75,18 @@ function firstRecord(path: string): Rec | undefined {
   try {
     // Inside the try: an unreadable or vanished agent file must not break discovery of every session.
     fd = openSync(path, 'r');
-    const buf = Buffer.alloc(64 * 1024);
-    const n = readSync(fd, buf, 0, buf.length, 0);
-    const line = buf.subarray(0, n).toString('utf8').split('\n')[0];
-    return JSON.parse(line);
+    // Read until the first newline; a first record can be large (a long prompt or pasted file).
+    const chunks: Buffer[] = [];
+    for (let pos = 0; pos < 16 * 1024 * 1024; ) {
+      const buf = Buffer.alloc(64 * 1024);
+      const n = readSync(fd, buf, 0, buf.length, pos);
+      if (!n) break;
+      const nl = buf.subarray(0, n).indexOf(10);
+      chunks.push(buf.subarray(0, nl < 0 ? n : nl));
+      if (nl >= 0) break;
+      pos += n;
+    }
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     return undefined;
   } finally {
@@ -267,10 +275,12 @@ export function parseSession(files: SessionFiles): Session {
     subagents.push({ id: String(agentId ?? basename(f, '.jsonl')), items: buildItems(sl, ctx, f) });
   }
 
-  // Attach each subagent to the Task/Agent tool call whose prompt started it.
+  // Attach each subagent to the Task/Agent tool call whose prompt started it. Calls are in time
+  // order, so matching subagents in start order pairs repeated identical prompts correctly.
   const orphanSubagents: Subagent[] = [];
   const calls = items.filter((i): i is ToolCall => i.kind === 'tool' && (i.name === 'Task' || i.name === 'Agent'));
-  for (const sa of subagents) {
+  const startOf = (sa: Subagent) => sa.items.find((i) => i.ts)?.ts ?? Infinity;
+  for (const sa of subagents.sort((x, y) => startOf(x) - startOf(y))) {
     const prompt = firstPrompt(sa.items);
     const call = calls.find((c) => !c.subagent && typeof (c.input as Rec)?.prompt === 'string' && (c.input as Rec).prompt.trim() === prompt);
     if (call) call.subagent = sa;
