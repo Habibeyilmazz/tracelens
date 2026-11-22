@@ -49,11 +49,16 @@ test('export refuses to write into the log folder and leaves logs untouched', ()
   const r = run('export', A, '--dir', FIXTURES, '-o', join(FIXTURES, 'out.md'));
   assert.equal(r.status, 1);
   assert.match(r.stderr, /refusing to write inside the log folder/);
+  // a log opened by path, outside --dir, is protected too
+  const self = run('export', log, '--dir', tmpdir(), '-o', log);
+  assert.equal(self.status, 1);
+  assert.match(self.stderr, /refusing to write/);
   assert.equal(statSync(log).mtimeMs, before);
 });
 
 test('export reports unknown sessions and bad formats', () => {
   assert.match(run('export', 'zzz', '--dir', FIXTURES).stderr, /No session matches "zzz"/);
+  assert.match(run('export', '/no/such/file.jsonl', '--dir', FIXTURES).stderr, /file not found: \/no\/such\/file\.jsonl/);
   assert.match(run('export', A, '--dir', FIXTURES, '--format', 'pdf').stderr, /--format must be md or html/);
   assert.match(run('serve', '--dir', FIXTURES, '--port', 'abc').stderr, /--port must be a number/);
 });

@@ -97,7 +97,8 @@ async function main(argv: string[]) {
     if (!target) throw new Error('export needs a session id or a .jsonl path. Run "tracelens list" to see ids.');
     const format = o.format ?? (o.output?.endsWith('.html') ? 'html' : 'md');
     if (format !== 'md' && format !== 'html') throw new Error(`--format must be md or html, got "${format}"`);
-    const session = target.endsWith('.jsonl') && existsSync(target) ? parseSession(filesForPath(resolve(target))) : findSession(store.sessions(), target);
+    if (target.endsWith('.jsonl') && !existsSync(target)) throw new Error(`file not found: ${target}`);
+    const session = target.endsWith('.jsonl') ? parseSession(filesForPath(resolve(target))) : findSession(store.sessions(), target);
     const st = sessionStats(session, pricing);
     const shown = o.redact ? redactSession(session) : session;
     const text = format === 'html' ? exportHtml(shown, st) : exportMarkdown(shown, st);
@@ -105,8 +106,9 @@ async function main(argv: string[]) {
     const out = resolve(o.output);
     // Read-only guarantee: never write into the log folder or over the transcript itself.
     const rel = relative(dir, out);
-    if (out === resolve(session.file) || (rel && !rel.startsWith('..') && !isAbsolute(rel)))
-      throw new Error(`refusing to write inside the log folder (${dir}); choose another --output path`);
+    // A .jsonl target may live outside --dir, so also refuse any .jsonl output (it could be that log or a subagent's).
+    if (out.endsWith('.jsonl') || (rel && !rel.startsWith('..') && !isAbsolute(rel)))
+      throw new Error(`refusing to write inside the log folder (${dir}) or to a .jsonl file; choose another --output path`);
     writeFileSync(out, text);
     console.error(`tracelens: wrote ${out}`);
     return;
