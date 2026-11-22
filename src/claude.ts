@@ -135,12 +135,13 @@ export function readLines(path: string): Line[] {
 export const tooDeep = (v: unknown, depth = 0): boolean =>
   depth > 200 || (typeof v === 'object' && v !== null && Object.values(v).some((x) => tooDeep(x, depth + 1)));
 
-// Before 2000 or from 2100 on, a timestamp is a broken clock or a placeholder. Trusting it would stretch
-// durations and the daily charts across centuries (a year-9999 date made the day list loop forever).
-const MIN_TS = Date.UTC(2000, 0, 1), MAX_TS = Date.UTC(2100, 0, 1);
+// Before 2000 or more than a day from now, a timestamp is a broken clock or a placeholder. Trusting it would
+// stretch durations and the daily charts across decades (a 2099 date made a 26,705-day chart). The day of slack
+// covers timestamps without a zone, which are read as local time.
+const MIN_TS = Date.UTC(2000, 0, 1);
 export function parseTs(v: unknown): number {
   const t = typeof v === 'string' ? Date.parse(v) : NaN;
-  return t >= MIN_TS && t < MAX_TS ? t : NaN;
+  return t >= MIN_TS && t < Date.now() + 86_400_000 ? t : NaN;
 }
 
 export function textOf(content: unknown): string {

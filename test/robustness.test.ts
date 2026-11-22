@@ -243,3 +243,12 @@ test('a last line still being written (no newline yet) is not shown as unreadabl
   // a complete last record without a newline is kept
   assert.ok(parse(`${user('x')}\n${assistant('2026-03-08T09:31:00Z')}`).items.some((i) => i.kind === 'assistant'));
 });
+
+test('a timestamp in the future is ignored: one 2099 date made a 26,705-day chart (5 MB insights page) and a forever-live session', () => {
+  const s = parse(`${user('a', '2026-03-08T09:30:00Z')}\n${assistant('2099-12-31T23:00:00Z', 'm1')}\n`);
+  assert.equal(s.end, s.start);
+  assert.deepEqual(computeInsights([s], pricing).byDay.map((d) => d.key), ['2026-03-08']);
+  // Up to a day ahead is kept: a timestamp without a zone is read as local time.
+  const soon = new Date(Date.now() + 3_600_000).toISOString();
+  assert.equal(parse(`${user('b', soon)}\n`).start, Date.parse(soon));
+});
