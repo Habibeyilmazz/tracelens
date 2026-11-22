@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Security (round 3, security pass)
+
+- Redaction no longer takes quadratic time on long runs of characters. The email, URL-password, `key=value` and JWT patterns rescanned a run from every position, so 200 KB of crafted tool output took about 5 minutes to export with `--redact`. The web UI's export redacts by default, and the server is single-threaded, so this froze every page. The same 3.2 MB test input now takes milliseconds. Assignments nested in other values (`url: https://x?token=…`) are still found.
+- Markdown links in assistant text no longer backtrack quadratically on long runs of unclosed `[a](http://` (6 s for 330 KB in the HTML export). Side effect: a URL containing `[` or `]`, such as an IPv6 literal, stays plain text.
+- The server refuses cross-site and same-site requests that are not top-level navigations (Fetch Metadata: `Sec-Fetch-Site`/`-Mode`/`-Dest`). Before, any website could make `<img>`/`fetch(no-cors)` requests to `127.0.0.1:4180/search?q=…` and time the replies. Responses now also send `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy: same-origin`.
+- Exported HTML files carry a `Content-Security-Policy` meta tag (no scripts, no external loads), since they are opened from disk without the server's headers.
+
+### Fixed (round 3)
+
+- Two project folders holding the same session id each get their own page: session URLs are now `/session/<project folder>/<id>`. `tracelens export <id>` refuses an id that is in more than one folder and prints both file paths, instead of silently exporting one.
+- A Markdown link whose URL contains `*` (`[x](https://host/*a*)`) keeps its URL; `<em>` used to be inserted into the href, which broke the link (it was not an injection, since quotes stay escaped).
+
+### Notes for the next person (round 3, security pass)
+
+- Checked and found fine: every log-controlled string (folder name, session id, summary, cwd, model, prompts, tool names/inputs/outputs, subagent id, block and event types, raw lines) stays text on every page and in the HTML export. Verified in Chromium with a hostile synthetic session (no dialogs, no injected elements) and kept as a server test. Also fine: `export -o` path guard, Content-Disposition filename, search query escaping, `npm audit` (0 vulnerabilities), CI (`contents: read`, actions pinned to SHAs that match their tags, `persist-credentials: false`), and git history (no secrets; one obviously fake private key block in a test).
+- Not done: login/token for the web UI (documented in the README under "No login"). The Markdown export copies prompts and replies verbatim, so raw HTML in them is rendered by Markdown viewers that allow HTML. Tool output is fenced.
+- A throwaway fuzz run (400 random malformed sessions through the parser, every renderer, redaction and search) found no crashes; it is not kept in the repo. Session URLs changed shape, so old bookmarks to `/session/<id>` now return 404.
+- Codex second-opinion review (run as a plain code review; a prompt worded as a security review was refused by its content filter) found two cases the first version of the linear redaction missed: a JWT or a `scheme://user:password@` URL glued to a leading `-`. Both are fixed and tested. It found nothing else in redaction, Markdown, routing or Fetch Metadata.
+
 ### Added (round 2, design pass)
 
 - Assistant replies render as Markdown in the web UI and the HTML export (`src/mdhtml.ts`): paragraphs, headings, fenced code, nested lists, quotes, rules, pipe tables, inline code, bold, italic and http(s) links. All text is escaped; other link schemes stay as text; images are never loaded (alt text only). User prompts are still shown exactly as typed.
