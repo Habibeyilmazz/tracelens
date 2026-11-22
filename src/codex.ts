@@ -3,7 +3,7 @@
 // Files are only ever opened for reading.
 
 import { readdirSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, join } from 'node:path';
 import { num, readLines, type SessionFiles } from './claude.js';
 import type { Item, Session, ToolCall, UsageEvent } from './types.js';
 
@@ -127,7 +127,10 @@ export function parseCodex(files: SessionFiles): Session {
               push({ kind: 'assistant', n: n++, ts, text, model, error: false });
             } else if (p.role === 'user') {
               const ctx = contextLabel(text);
-              if (ctx) raw(`Context added by Codex: ${ctx}`, text);
+              if (ctx) {
+                raw(`Context added by Codex: ${ctx}`, text);
+                cwd ??= /<cwd>([^<\n]+)<\/cwd>/.exec(text)?.[1].trim();
+              }
               else push({ kind: 'user', n: n++, ts, text });
             } else raw(`Instructions (${String(p.role)})`, text);
           }
@@ -208,7 +211,7 @@ export function parseCodex(files: SessionFiles): Session {
     id,
     source: 'codex',
     file: files.main,
-    project: cwd ?? basename(dirname(files.main)),
+    project: cwd ?? '(unknown folder)', // the day folder a rollout sits in says nothing about the project
     title: (prompt?.kind === 'user' ? prompt.text : '(no prompt)').replace(/\s+/g, ' ').trim().slice(0, 140),
     start: first,
     end: last,

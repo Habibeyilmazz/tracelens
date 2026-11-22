@@ -95,7 +95,7 @@ test('exit codes in plain-text output mark failures, but only in the header line
     const last = s.items.at(-1);
     assert.equal(last?.kind === 'raw' && last.label, 'Tool result without a matching call');
     assert.equal(s.title, '(no prompt)');
-    assert.equal(s.project, dir.split('/').pop());
+    assert.equal(s.project, '(unknown folder)');
   } finally {
     rmSync(dir, { recursive: true });
   }
@@ -138,6 +138,19 @@ test('the pre-envelope rollout layout is read too', () => {
   assert.equal(ls.output, 'README.md\nsrc\n');
   assert.equal(toolLabel(ls.input), 'ls');
   assert.deepEqual(s.items.map((i) => i.kind), ['user', 'tool', 'assistant']);
+  assert.equal(s.project, '(unknown folder)');
+});
+
+test('the project folder falls back to the <cwd> in the environment context', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tracelens-codex-'));
+  try {
+    const file = join(dir, 'rollout-z.jsonl');
+    const env = { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<environment_context>\n  <cwd>/srv/app</cwd>\n</environment_context>' }] };
+    writeFileSync(file, JSON.stringify({ id: 'z', timestamp: '2025-08-01T10:00:00Z' }) + '\n' + JSON.stringify(env) + '\n');
+    assert.equal(parseCodex({ id: 'z', main: file, subagents: [] }).project, '/srv/app');
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 });
 
 test('context labels: environment and AGENTS.md blocks, not prompts that mention tags', () => {
