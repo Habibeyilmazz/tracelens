@@ -153,7 +153,7 @@ test('a session file over 512 MB (V8 string limit) is read, not skipped', { skip
     const pad = 'x'.repeat(1_000_000);
     const out = join(dir, 'p', 'big.jsonl');
     writeFileSync(out, `${user('huge session')}\n`);
-    const chunk = Array.from({ length: 100 }, () => JSON.stringify({ type: 'progress', timestamp: '2026-03-08T09:31:00Z', pad })).join('\n') + '\n';
+    const chunk = Array.from({ length: 100 }, () => JSON.stringify({ type: 'future-record', timestamp: '2026-03-08T09:31:00Z', pad })).join('\n') + '\n';
     for (let i = 0; i < 6; i++) writeFileSync(out, chunk, { flag: 'a' });
     const [s] = new Store(dir).sessions();
     assert.equal(s?.title, 'huge session');

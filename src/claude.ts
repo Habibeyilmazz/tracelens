@@ -253,8 +253,9 @@ function buildItems(lines: Line[], ctx: Ctx, source: string): Item[] {
       push({ kind: 'system', n: ctx.n++, ts, text, error: rec.level === 'error' });
     } else if (rec.type === 'summary') {
       if (!ctx.summary && typeof rec.summary === 'string') ctx.summary = rec.summary;
-    } else if (rec.type === 'file-history-snapshot') {
-      // Checkpoint bookkeeping (file backups), written before each prompt; nothing to read in a transcript.
+    } else if (rec.type === 'file-history-snapshot' || rec.type === 'progress') {
+      // Checkpoint bookkeeping (file backups), and progress ticks (hook, shell, subagent) whose end
+      // result is already in a tool result, system record or subagent file: shown raw they flood a transcript.
     } else {
       raw(`Unrecognized event: ${String(rec.type)}`, JSON.stringify(rec, null, 2));
     }

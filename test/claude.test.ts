@@ -93,7 +93,7 @@ test('unknown and broken records become raw items instead of crashing', () => {
   assert.ok(meta && meta.kind === 'system' && !meta.error && meta.text.startsWith('Caveat'));
 });
 
-test('Claude Code bookkeeping: summary-only files are hidden, <synthetic> messages carry no usage, compact summaries are not user turns', () => {
+test('Claude Code bookkeeping: summary-only files are hidden, progress ticks are skipped, <synthetic> messages carry no usage, compact summaries are not user turns', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tracelens-'));
   try {
     mkdirSync(join(dir, 'p'));
@@ -102,6 +102,8 @@ test('Claude Code bookkeeping: summary-only files are hidden, <synthetic> messag
     const lines = [
       { type: 'user', timestamp: ts, message: { role: 'user', content: 'real prompt' } },
       { type: 'file-history-snapshot', messageId: 'm', snapshot: { trackedFileBackups: {} }, isSnapshotUpdate: false },
+      { type: 'progress', timestamp: ts, data: { type: 'bash_progress', output: 'line 1', elapsedTimeSeconds: 3 }, toolUseID: 't1', parentToolUseID: 't1' },
+      { type: 'progress', timestamp: ts, data: { type: 'hook_progress', hookEvent: 'PostToolUse' } },
       { type: 'user', timestamp: ts, isCompactSummary: true, message: { role: 'user', content: 'This session is being continued from a previous conversation.' } },
       { type: 'assistant', timestamp: ts, message: { id: 'syn', model: '<synthetic>', content: [{ type: 'text', text: 'No response requested.' }], usage: { input_tokens: 0, output_tokens: 0 } } },
     ];
