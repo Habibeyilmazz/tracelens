@@ -164,14 +164,12 @@ test('a running session updates in place and keeps open tool calls open', async 
   const dir = mkdtempSync(join(tmpdir(), 'tracelens-e2e-live-'));
   mkdirSync(join(dir, '-Users-dev-live'));
   const file = join(dir, '-Users-dev-live', 'live-1.jsonl');
-  const step = (n: number) =>
-    appendFileSync(
-      file,
-      [
-        { type: 'assistant', message: { id: `m${n}`, content: [{ type: 'text', text: `Step ${n} reply` }, { type: 'tool_use', id: `t${n}`, name: 'Bash', input: { command: `run step ${n}` } }] } },
-        { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `t${n}`, content: `output of step ${n}` }] } },
-      ].map((r) => JSON.stringify({ ...r, timestamp: new Date().toISOString(), cwd: '/Users/dev/live' }) + '\n').join(''),
-    );
+  const stepText = (n: number) =>
+    [
+      { type: 'assistant', message: { id: `m${n}`, content: [{ type: 'text', text: `Step ${n} reply` }, { type: 'tool_use', id: `t${n}`, name: 'Bash', input: { command: `run step ${n}` } }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `t${n}`, content: `output of step ${n}` }] } },
+    ].map((r) => JSON.stringify({ ...r, timestamp: new Date().toISOString(), cwd: '/Users/dev/live' }) + '\n').join('');
+  const step = (n: number) => appendFileSync(file, stepText(n));
   appendFileSync(file, JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), cwd: '/Users/dev/live', message: { content: 'Watch me work' } }) + '\n');
   step(0);
   const port = PORT - 1;
@@ -184,7 +182,12 @@ test('a running session updates in place and keeps open tool calls open', async 
     await page.goto(`http://127.0.0.1:${port}/session/-Users-dev-live/live-1`);
     assert.match((await page.locator('[data-live]').textContent()) ?? '', /Live/);
     await page.locator('details.tool summary').first().click();
-    step(1);
+    // A record the agent is still writing (no newline yet): the page refreshes but shows nothing broken.
+    const next = stepText(1);
+    appendFileSync(file, next.slice(0, 50));
+    await page.locator('[data-live]', { hasText: 'updated' }).waitFor({ timeout: 10_000 });
+    assert.equal(await page.getByText(/Unreadable line/).count(), 0);
+    appendFileSync(file, next.slice(50));
     await page.getByText('Step 1 reply').waitFor({ timeout: 10_000 });
     assert.equal(await page.locator('details.tool').count(), 2);
     assert.equal(await page.locator('details.tool').first().getAttribute('open'), '', 'the tool call opened before the update is still open');
