@@ -410,6 +410,7 @@ function barChart(rows: Row[], value: (r: Row) => number, fmt: (n: number) => st
   const W = 480, H = 190, L = 50, B = 22, T = 8;
   const max = Math.max(...rows.map(value), 0);
   const step = (W - L) / Math.max(rows.length, 1);
+  const years = rows.length > 0 && rows[0].key.slice(0, 4) !== rows[rows.length - 1].key.slice(0, 4); // MM-DD alone would hide a year
   const bw = Math.max(1, Math.min(28, step * 0.72));
   const y = (v: number) => T + (H - T - B) * (1 - (max ? v / max : 0));
   const bars = rows
@@ -424,7 +425,7 @@ function barChart(rows: Row[], value: (r: Row) => number, fmt: (n: number) => st
     // The end labels are anchored inside the plot so they are not cut off when phones enlarge the text.
     .map((i, _, a) => {
       const [x, anchor] = a.length > 1 && i === 0 ? [L, 'start'] : a.length > 1 && i === rows.length - 1 ? [W, 'end'] : [L + i * step + step / 2, 'middle'];
-      return `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${anchor}">${esc(rows[i].key.slice(5))}</text>`;
+      return `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${anchor}">${esc(rows[i].key.slice(years ? 0 : 5))}</text>`;
     })
     .join('');
   return `<figure class="chart" style="margin:0"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}, ${rows.length} days, peak ${esc(fmt(max))}">

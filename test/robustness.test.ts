@@ -11,7 +11,7 @@ import { fmtDuration, fmtTokens, fmtUSD, oneLine } from '../src/format.js';
 import { computeInsights } from '../src/insights.js';
 import { DEFAULT_PRICING_PATH, loadPricing } from '../src/pricing.js';
 import { redactSecrets } from '../src/redact.js';
-import { sessionPage, sessionsPage } from '../src/render.js';
+import { insightsPage, sessionPage, sessionsPage } from '../src/render.js';
 import { exportMarkdown } from '../src/markdown.js';
 import { redactSession } from '../src/redact.js';
 import { sessionStats } from '../src/insights.js';
@@ -251,4 +251,14 @@ test('a timestamp in the future is ignored: one 2099 date made a 26,705-day char
   // Up to a day ahead is kept: a timestamp without a zone is read as local time.
   const soon = new Date(Date.now() + 3_600_000).toISOString();
   assert.equal(parse(`${user('b', soon)}\n`).start, Date.parse(soon));
+});
+
+test('day chart labels carry the year when the range spans more than one year', () => {
+  const a = parse(`${user('a', '2025-08-01T09:30:00Z')}\n${assistant('2025-08-01T09:31:00Z')}\n`);
+  const b = parse(`${user('b', '2026-11-21T09:30:00Z')}\n${assistant('2026-11-21T09:31:00Z')}\n`);
+  // "08-01 … 11-21" read like four months.
+  const spanning = insightsPage(computeInsights([a, b], pricing), [], {});
+  assert.match(spanning, />2025-08-01<\/text>/);
+  assert.match(spanning, />2026-11-21<\/text>/);
+  assert.match(insightsPage(computeInsights([b], pricing), [], {}), />11-21<\/text>/);
 });

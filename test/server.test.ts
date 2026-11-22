@@ -247,5 +247,5 @@ test('HTML in every log-controlled field stays text on every page', async () => 
 test('a search query cut at 500 characters never ends in half an emoji', async () => {
   const r = await get(`/search?q=${encodeURIComponent('x' + '😀'.repeat(300))}`);
   assert.equal(r.status, 200);
-  assert.ok(!r.body.includes('�'), 'half an emoji showed as a replacement character');
+  assert.ok(!r.body.includes(String.fromCharCode(0xfffd)), 'half an emoji showed as a replacement character');
 });
