@@ -1,0 +1,26 @@
+name: Bug report
+description: Something crashed, looks wrong, or does not match the README.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not paste real logs: they can hold code, paths and secrets. Use a made-up record with the same shape, or `tracelens export <session> --redact` and read it first."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Commands you ran, the page you opened, and a synthetic log line if it is about parsing.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: tracelens commit, OS, Node version, and agent version (Claude Code or Codex CLI)
+    validations:
+      required: true

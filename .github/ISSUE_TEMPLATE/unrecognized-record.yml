@@ -1,0 +1,29 @@
+name: Unrecognized log record
+description: A record shows up as "Unrecognized" or "Unreadable line", or a tool call has no result.
+labels: [log-format]
+body:
+  - type: markdown
+    attributes:
+      value: "tracelens was built from synthetic fixtures, so real logs teach it new record types. Please share the record's shape, not its content: keep the field names and types, replace every value (paths, prompts, ids, keys) with made-up text."
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which agent wrote the log?
+      options: [Claude Code, Codex CLI]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Agent version (for example from `claude --version` or `codex --version`)
+  - type: textarea
+    id: record
+    attributes:
+      label: The record, with every value replaced
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: meaning
+    attributes:
+      label: What the record means, if you know, and how you would like it shown
