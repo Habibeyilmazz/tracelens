@@ -1,11 +1,12 @@
-<img src="assets/logo.png" alt="" width="96" align="right">
+![tracelens: a timeline of agent steps under a magnifying glass](assets/hero.png)
 
 # tracelens
 
-A local viewer and analytics page for Claude Code and Codex CLI session logs: browse every session, search them all, read a transcript with its tool calls, and see where your tokens went.
-It runs on your machine, binds to 127.0.0.1, only reads the log files, and sends nothing anywhere.
+**Read, search and add up your Claude Code and Codex CLI sessions in a local web page.**
 
-![A Claude Code session in tracelens: session metadata, then the transcript with timed tool calls and a nested subagent](docs/screenshots/session.png)
+tracelens turns the JSONL logs these agents already write into a session list, a full-text search, readable transcripts with every tool call, and a page of token and cost estimates. It runs on your machine, binds to 127.0.0.1, only reads the log files, sends nothing anywhere, and has no runtime dependencies.
+
+![Recorded from the demo data: the session list, a transcript with a nested subagent, a search for "timeout" that jumps to the hit, and the insights tables](docs/demo.gif)
 
 ## Quickstart
 
@@ -34,6 +35,8 @@ No logs on this machine, or want to look first? `npm run demo` generates 25 made
 - **Codex transcripts**: prompts, replies (Markdown), reasoning summaries, and tool calls (`shell`, `apply_patch`, MCP tools, …) paired with their output, timed, and marked red when a command exits non-zero. The environment and `AGENTS.md` text Codex adds to each session is collapsed under "Context added by Codex".
 - **Defensive parsing**: records it does not recognise, and lines that are not valid JSON, are shown raw in the transcript instead of breaking the page.
 - Light and dark themes (follows your system), keyboard-friendly, AA text contrast, and a card layout for the session list on phone-sized screens. No JavaScript frameworks and no runtime dependencies.
+
+![A Claude Code session in tracelens: session metadata, then the transcript with timed tool calls and a nested subagent](docs/screenshots/session.png)
 
 ![A Codex session: the injected context collapsed, timed shell calls, an apply_patch call opened to show the patch, and a failed test run marked in red](docs/screenshots/session-codex.png)
 
@@ -69,6 +72,15 @@ node dist/src/cli.js export ~/.codex/sessions/2026/11/20/rollout-2026-11-20T09-1
 ```
 
 To get a `tracelens` command on your PATH, run `npm link` in the repo (it creates a global symlink; `npm unlink -g tracelens` removes it).
+
+## Compared with other tools
+
+Other tools cover parts of this, and some are a better fit (as of November 2026; check their own READMEs, they change quickly):
+
+- **[ccusage](https://github.com/ryoppippi/ccusage)** prints daily, monthly, per-session and billing-window token and cost reports in the terminal, for Claude Code, Codex and several other agents, with JSON output. Use it if you want numbers in a terminal or a script and do not need to read transcripts. tracelens shows the transcripts and search; ccusage covers more agents and billing windows.
+- **[claude-code-log](https://github.com/daaain/claude-code-log)** is a Python tool that turns Claude Code transcripts into HTML or Markdown, with a terminal UI and a search server of its own. Use it if you prefer Python or a terminal browser. tracelens adds cost estimates, insights across sessions, redacted exports and full Codex sessions in the same list.
+- **Claude Code's own commands**: `claude --resume` reopens a past session to keep working in it. For usage numbers across a team, Claude Code can [export metrics and events over OpenTelemetry](https://code.claude.com/docs/en/monitoring-usage) to a collector you run. tracelens is for one person looking back at their own logs, with no setup and no collector.
+- **LLM tracing platforms** (Langfuse, LangSmith and similar) record traces of apps you build and instrument yourself, usually on a server. tracelens reads the logs your coding agent already writes; it does not instrument anything.
 
 ## Cost estimates
 
@@ -116,16 +128,31 @@ TRACELENS_SLOW_TESTS=1 npm test   # also reads a 600 MB session file (writes it 
 npm run typecheck
 npm run demo           # synthetic data on http://127.0.0.1:4180
 node scripts/screenshots.mjs http://127.0.0.1:4180   # Playwright check + screenshots (needs `npx playwright install chromium` once)
+node scripts/demo-gif.mjs http://127.0.0.1:4180      # re-record docs/demo.gif from the demo (also needs ffmpeg)
 ```
 
 The test fixtures are hand-made. `test/fixtures/projects` (Claude Code) covers split assistant messages, inline and file-based subagents, an orphan subagent, tool errors, API errors, meta messages, unknown event types and a truncated line. `test/fixtures/codex` covers injected context, duplicate events, plain-text and JSON-wrapped shell output, an `apply_patch` call, a call with no result, repeated `token_count` totals, an error event, unknown event types, a truncated line, and the older pre-envelope layout. [`test/robustness.test.ts`](test/robustness.test.ts) holds the odd-input cases (deep nesting, byte-order marks, out-of-range timestamps, emoji, multi-megabyte runs, junk ids and token counts).
 
 ## Roadmap
 
+Ideas, not promises:
+
 - Show rewound or edited conversation branches as a tree instead of file order.
-- A search index for very large histories (search is a linear scan today).
+- A search index for very large histories (search is a linear scan over sessions held in memory today).
+- Read session files over 2 GB by streaming them (they are skipped with a warning today).
+- Model long-context price tiers (rates are flat per model today, see [Cost estimates](#cost-estimates)).
 - CSV export of the insights tables.
 - Publish as an npm package so `npx tracelens serve` works without cloning.
+
+## Known limits
+
+- Both log formats are undocumented internals of their tools. tracelens was built from synthetic fixtures and has not yet been checked against a wide range of real logs, so some records may show up as "Unrecognized". They are shown raw, never dropped. If you see one, please [open an issue](https://github.com/Habibeyilmazz/tracelens/issues/new?template=unrecognized-record.yml) with a redacted, made-up copy of the record.
+- Everything is parsed into memory: about 1.8 GB of RAM for 1.4 GB of logs in a synthetic test.
+- No login on the web UI (see "No login" above).
+
+## Contributing
+
+Bug reports and small pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the setup and the few rules (no real logs in fixtures, tests for parser changes). Security problems: see [SECURITY.md](SECURITY.md).
 
 ## License
 
