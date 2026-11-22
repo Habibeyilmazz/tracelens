@@ -61,7 +61,7 @@ export function createHandler(store: Store, pricing: Pricing) {
 
       if (path === '/search') {
         const q = (p.get('q') ?? '').slice(0, 500);
-        return send(200, searchPage(q, search(sessions, q).slice(0, 100)));
+        return send(200, searchPage(q, search(sessions, q)));
       }
 
       if (path === '/insights') {

@@ -39,7 +39,7 @@ export function redactSecrets(s: string): string {
 export function redactPaths(s: string, project?: string, home = homedir()): string {
   if (project && project.length > 1) s = s.split(project).join('<project>');
   if (home.length > 1) s = s.split(home).join('~');
-  return s.replace(/\/(?:Users|home)\/[^/\s"'`<>]+/g, '~').replace(/\b[A-Za-z]:\\(?:Users|Documents and Settings)\\[^\\\s"'`<>]+/gi, '~');
+  return s.replace(/\/(?:Users|home)\/[^/\s"'`<>]+/g, '~').replace(/\b[A-Za-z]:\\{1,2}(?:Users|Documents and Settings)\\{1,2}[^\\\s"'`<>]+/gi, '~'); // one or two backslashes: paths inside raw JSON are escaped
 }
 
 export function redact(s: string, project?: string): string {

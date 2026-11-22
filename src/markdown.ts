@@ -4,7 +4,8 @@ import type { Item, Session, Subagent } from './types.js';
 
 /** A code fence longer than any backtick run inside the text, so content can never close it. */
 export function fence(text: string, lang = ''): string {
-  const longest = Math.max(2, ...(text.match(/`+/g) ?? []).map((m) => m.length));
+  // reduce, not Math.max(...spread): a long output can hold more backtick runs than the call stack allows.
+  const longest = (text.match(/`+/g) ?? []).reduce((n, m) => Math.max(n, m.length), 2);
   const f = '`'.repeat(longest + 1);
   return `${f}${lang}\n${text}\n${f}`;
 }

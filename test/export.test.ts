@@ -5,7 +5,7 @@ import { sessionStats } from '../src/insights.js';
 import { exportMarkdown, fence } from '../src/markdown.js';
 import { loadPricing } from '../src/pricing.js';
 import { redact, redactPaths, redactSecrets, redactSession } from '../src/redact.js';
-import { esc, exportHtml } from '../src/render.js';
+import { esc, exportHtml, searchPage } from '../src/render.js';
 import type { Session } from '../src/types.js';
 import { fixtureSessions } from './helpers.js';
 
@@ -43,6 +43,8 @@ test('ordinary numbers and words survive secret redaction', () => {
 test('paths: project becomes <project>, home folders lose the user name', () => {
   assert.equal(redactPaths('/Users/dev/acme/src/a.ts and /Users/dev/other', '/Users/dev/acme', '/Users/dev'), '<project>/src/a.ts and ~/other');
   assert.equal(redactPaths('/home/alice/x and C:\\Users\\Bob\\y', undefined, '/nowhere'), '~/x and ~\\y');
+  // the same path inside JSON text (raw records) has doubled backslashes
+  assert.equal(redactPaths(JSON.stringify('C:\\Users\\Bob\\y'), undefined, '/nowhere'), '"~\\\\y"');
   assert.equal(redact('see /Users/zed/p/notes.md', '/Users/zed/p'), 'see <project>/notes.md');
 });
 
@@ -97,4 +99,18 @@ test('the header links to the first error even when it is not a tool call', () =
   const { a } = fixtureSessions();
   const s: Session = { ...a, orphanSubagents: [], items: [{ kind: 'system', n: 7, ts: a.start, text: 'API Error: 529', error: true }] };
   assert.match(exportHtml(s, sessionStats(s, pricing)), /<a href="#i-7">first error<\/a>/);
+});
+
+test('a code fence survives output with a huge number of backtick runs', () => {
+  const text = '`x '.repeat(200_000);
+  assert.ok(fence(text).startsWith('```\n'));
+});
+
+test('search results count every session, list the top 100 and say so', () => {
+  const { a } = fixtureSessions();
+  const hits = Array.from({ length: 101 }, (_, i) => ({ session: { ...a, id: `s${i}` }, total: 1, matches: [] }));
+  const html = searchPage('x', hits);
+  assert.match(html, /101 matches in 101 sessions/);
+  assert.match(html, /Showing the 100 sessions with the most matches/);
+  assert.equal(html.match(/href="\/session\/s\d+"/g)!.length, 100);
 });

@@ -99,4 +99,9 @@ test('search is case-insensitive and covers messages, tool inputs, outputs and s
   assert.equal(m.matches[0].match, 'Friendly and brief');
   assert.deepEqual(search(sessions, '   '), []);
   assert.deepEqual(search(sessions, 'no-such-text-anywhere'), []);
+  // highlights stay aligned when lowercasing would change the text's length, and regex characters are literal
+  const tr = { ...sessions[0], items: [{ kind: 'user' as const, n: 0, ts: 0, text: 'İstanbul foo (a+b)' }], orphanSubagents: [] };
+  assert.equal(search([tr], 'FOO')[0].matches[0].match, 'foo');
+  assert.equal(search([tr], 'foo')[0].matches[0].before, 'İstanbul ');
+  assert.equal(search([tr], '(a+b)')[0].total, 1);
 });

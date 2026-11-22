@@ -197,9 +197,12 @@ ${
 
 // ---------------------------------------------------------------- search
 
+const MAX_HITS = 100; // sessions listed per search; the totals still count every hit
+
 export function searchPage(q: string, hits: Hit[]): string {
   const total = hits.reduce((a, h) => a + h.total, 0);
   const list = hits
+    .slice(0, MAX_HITS)
     .map((h) => {
       const href = `/session/${encodeURIComponent(h.session.id)}`;
       const more = h.total > h.matches.length ? `<li class="muted">and ${h.total - h.matches.length} more in this session</li>` : '';
@@ -216,6 +219,7 @@ export function searchPage(q: string, hits: Hit[]): string {
   const body = !q.trim()
     ? `<h1>Search</h1><p class="muted">Search the text of every prompt, reply, tool input and tool output.</p>`
     : `<h1>Results for “${esc(q)}”</h1><p class="muted">${total} ${total === 1 ? 'match' : 'matches'} in ${hits.length} ${hits.length === 1 ? 'session' : 'sessions'}</p>
+${hits.length > MAX_HITS ? `<p class="muted">Showing the ${MAX_HITS} sessions with the most matches.</p>` : ''}
 ${hits.length ? `<ul class="hits">${list}</ul>` : `<p class="empty">No matches. Search is case-insensitive and matches exact text, so try a shorter phrase.</p>`}`;
   return page(q ? `Search: ${q}` : 'Search', body, 'search', q);
 }

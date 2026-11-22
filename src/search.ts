@@ -33,23 +33,26 @@ const CONTEXT = 70;
 /** Case-insensitive substring search over every message, tool input and tool output.
  *  shortcut: linear scan over in-memory text; fine for thousands of sessions, add an index if it gets slow. */
 export function search(sessions: Session[], query: string, perSession = 5): Hit[] {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return [];
+  // A case-insensitive regex on the original text, not indexOf on toLowerCase(): lowercasing can change
+  // the length of a string ("İ" becomes two code units), which would shift every highlight after it.
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
   const hits: Hit[] = [];
   for (const session of sessions) {
     const hit: Hit = { session, total: 0, matches: [] };
     for (const it of sessionItems(session)) {
       for (const [where, text] of searchable(it)) {
-        const lower = text.toLowerCase();
-        for (let i = lower.indexOf(q); i >= 0; i = lower.indexOf(q, i + q.length)) {
+        for (const m of text.matchAll(re)) {
+          const i = m.index, end = i + m[0].length;
           hit.total++;
           if (hit.matches.length < perSession)
             hit.matches.push({
               n: it.n,
               where,
               before: (i > CONTEXT ? '…' : '') + text.slice(Math.max(0, i - CONTEXT), i),
-              match: text.slice(i, i + q.length),
-              after: text.slice(i + q.length, i + q.length + CONTEXT) + (i + q.length + CONTEXT < text.length ? '…' : ''),
+              match: m[0],
+              after: text.slice(end, end + CONTEXT) + (end + CONTEXT < text.length ? '…' : ''),
             });
         }
       }
