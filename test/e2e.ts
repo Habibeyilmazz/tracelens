@@ -76,6 +76,16 @@ test('list → session → tool call → search → insights → export', async 
     return true;
   });
   assert.ok(shown, 'every <details> around the matched item (a subagent step inside a Task call) was opened');
+  // Chromium opens <details> around a fragment target by itself, so the check above passes without app.js.
+  // Close them and fire hashchange with no navigation: only app.js reveal() can reopen them.
+  const reopened = await page.locator(`[id="${anchor}"]`).evaluate((el: any) => {
+    const closed: any[] = [];
+    for (let p = el; p; p = p.parentElement) if (p.tagName === 'DETAILS') (p.open = false), closed.push(p);
+    const w = el.ownerDocument.defaultView;
+    w.dispatchEvent(new w.HashChangeEvent('hashchange'));
+    return closed.length > 0 && closed.every((d) => d.open);
+  });
+  assert.ok(reopened, 'app.js reveal() opens every <details> around the hash target');
 
   // Insights: totals, a daily chart, tables.
   await page.getByRole('link', { name: 'Insights' }).click();
