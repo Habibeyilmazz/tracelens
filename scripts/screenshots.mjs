@@ -2,7 +2,8 @@
 // errors and horizontal overflow, and saves screenshots.
 // Usage: node scripts/screenshots.mjs http://127.0.0.1:4181 [out-dir]
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, readdirSync, renameSync } from 'node:fs';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:4181';
 const out = process.argv[3] ?? 'docs/screenshots';
@@ -33,7 +34,7 @@ const href = await home.locator('td.title a').first().getAttribute('href');
 const codexHref = await home.locator('tr:has(.chip.agent) td.title a').first().getAttribute('href').catch(() => undefined);
 await home.close();
 
-await shoot('sessions', '/');
+await shoot('qa/sessions', '/');
 await shoot('insights', '/insights');
 await shoot('qa/insights-full', '/insights', { full: true });
 await shoot('session', href, {
@@ -59,12 +60,23 @@ if (codexHref) {
 await shoot('qa/sessions-mobile-dark', '/', { width: 390, height: 844, scheme: 'dark' });
 await shoot('search', '/search?q=refund+decimal');
 await shoot('qa/search-mobile', '/search?q=refund+decimal', { width: 390, height: 844 });
-await shoot('session-dark', href, { scheme: 'dark', before: (p) => p.locator('[data-toggle=open]').click() });
+await shoot('qa/session-dark', href, { scheme: 'dark', before: (p) => p.locator('[data-toggle=open]').click() });
 await shoot('qa/insights-dark', '/insights', { scheme: 'dark' });
 await shoot('qa/sessions-mobile', '/', { width: 390, height: 844 });
 await shoot('qa/session-mobile', href, { width: 390, height: 844, before: (p) => p.locator('[data-toggle=open]').click() });
 await shoot('qa/insights-mobile', '/insights', { width: 390, height: 844, full: true });
 await browser.close();
+
+// The README's screenshots are flat UI: a 256-colour palette makes them less than half the size, no visible change.
+try {
+  for (const f of readdirSync(out).filter((f) => f.endsWith('.png'))) {
+    const path = `${out}/${f}`;
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', path, '-vf', 'split[a][b];[a]palettegen=reserve_transparent=0:stats_mode=full[p];[b][p]paletteuse=dither=none', `${path}.tmp.png`]);
+    renameSync(`${path}.tmp.png`, path);
+  }
+} catch (err) {
+  console.warn(`screenshots left full-colour (ffmpeg not available?): ${err.message}`);
+}
 
 if (problems.length) {
   console.error(problems.join('\n'));
