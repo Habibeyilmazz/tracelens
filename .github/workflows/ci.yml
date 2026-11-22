@@ -35,3 +35,22 @@ jobs:
           node dist/src/cli.js list --dir test/fixtures/projects --codex-dir test/fixtures/codex
           node dist/src/cli.js export 1111 --dir test/fixtures/projects --redact > /dev/null
           node dist/src/cli.js export 3333 --dir test/fixtures/projects --codex-dir test/fixtures/codex --redact > /dev/null
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end test (browser against tracelens serve)
+        run: npm run test:e2e

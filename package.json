@@ -19,7 +19,8 @@
     "typecheck": "tsc -p . --noEmit",
     "test": "npm run build && TZ=UTC node --test 'dist/test/*.test.js'",
     "demo": "npm run build && node dist/scripts/demo-data.js .demo/projects .demo/codex && node dist/src/cli.js serve --dir .demo/projects --codex-dir .demo/codex",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "test:e2e": "npm run build && TZ=UTC node --test dist/test/e2e.js"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
