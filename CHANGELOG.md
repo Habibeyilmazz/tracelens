@@ -14,6 +14,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - The session header's "first error" link now also points at API errors and error-level system events, matching the error count.
 - `tracelens export missing.jsonl` says "file not found" instead of "No session matches".
 - `export -o` refuses any `.jsonl` output path, so a log opened by path outside `--dir` (or its subagent files) cannot be overwritten.
+- `export -o` compares real paths, so a symlink cannot point the output at a log or into the log folder.
+- One unreadable or vanishing `agent-*.jsonl` file no longer makes every page return 500.
+- Markdown export no longer crashes (call stack overflow) on output with a very large number of backtick runs.
+- `--redact` now also catches Windows home paths inside raw JSON records, where backslashes are doubled.
+- Search highlights stay aligned when the text contains characters whose lowercase form has a different length (such as "İ"); search is also 2-5x faster.
+- The search page counts matches in every session, not only the 100 it lists, and says when the list is cut.
 
 ### Changed
 
@@ -25,6 +31,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Still never run on a real Claude Code log. Record types handled specially above were chosen from the documented/known 2.x layout, not observed; `progress` and `queue-operation` records, if present, still render raw.
 - Scale check with synthetic data: 1.4 GB of logs (1,500 sessions) took 1.8 s to parse, ~0.9 s per search and ~1.8 GB of memory. Everything is held in memory, so multi-GB histories will need streaming or an index.
 - Pricing table checked against the current list prices; all rows matched.
+- Known, not fixed (rare): two Task calls with the identical prompt can get each other's subagent (matching is by prompt only); an old-layout `agent-*.jsonl` whose first line is over 64 KiB is not attached; two projects holding the same session id both link to the first one.
+- Assistant text is still plain text, not rendered Markdown (roadmap).
 
 ## [0.1.0] - 2026-11-22
 
