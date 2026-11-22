@@ -102,7 +102,7 @@ async function main(argv: string[]) {
   if (cmd === 'export') {
     const target = rest[0];
     if (!target) throw new Error('export needs a session id or a .jsonl path. Run "tracelens list" to see ids.');
-    const format = o.format ?? (o.output?.endsWith('.html') ? 'html' : 'md');
+    const format = o.format ?? (/\.html?$/i.test(o.output ?? '') ? 'html' : 'md');
     if (format !== 'md' && format !== 'html') throw new Error(`--format must be md or html, got "${format}"`);
     if (target.endsWith('.jsonl') && !existsSync(target)) throw new Error(`file not found: ${target}`);
     const byPath = (p: string) => (isRollout(p) ? parseCodex({ id: '', main: p, subagents: [] }) : parseSession(filesForPath(p)));
@@ -112,15 +112,16 @@ async function main(argv: string[]) {
     const text = format === 'html' ? exportHtml(shown, st) : exportMarkdown(shown, st);
     if (!o.output) return void process.stdout.write(text);
     // Read-only guarantee: never write into the log folder or over a log. Compare real paths, so a
-    // symlink (to a log, or to a folder inside the log folder) cannot get around the check.
-    const real = (p: string): string => (existsSync(p) ? realpathSync(p) : join(real(dirname(p)), basename(p)));
+    // symlink (to a log, or to a folder inside the log folder) cannot get around the check. The native
+    // realpath also returns the on-disk letter case, so ~/.CLAUDE cannot get around it on macOS or Windows.
+    const real = (p: string): string => (existsSync(p) ? realpathSync.native(p) : join(real(dirname(p)), basename(p)));
     const out = real(resolve(o.output));
     const inside = (folder: string) => {
       const rel = relative(real(folder), out);
       return rel && !rel.startsWith('..') && !isAbsolute(rel);
     };
     // A .jsonl target may live outside the log folders, so also refuse any .jsonl output (it could be that log or a subagent's).
-    if (out.endsWith('.jsonl') || inside(dir) || inside(codexDir))
+    if (/\.jsonl$/i.test(out) || inside(dir) || inside(codexDir))
       throw new Error(`refusing to write inside a log folder (${dir}, ${codexDir}) or to a .jsonl file; choose another --output path`);
     writeFileSync(out, text);
     console.error(`tracelens: wrote ${out}`);

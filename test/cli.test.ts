@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -103,4 +103,49 @@ test('Codex sessions: listed with --codex-dir, exported by id or by rollout path
   assert.equal(w.status, 1);
   assert.match(w.stderr, /refusing to write inside a log folder/);
   assert.equal(statSync(rollout).mtimeMs, before);
+});
+
+test('the output extension picks the format regardless of case (.HTML, .htm)', () => {
+  const out = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    for (const name of ['T.HTML', 't.htm']) {
+      const r = run('export', A, '--dir', FIXTURES, '-o', join(out, name));
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(readFileSync(join(out, name), 'utf8'), /^<!doctype html>/, name);
+    }
+  } finally {
+    rmSync(out, { recursive: true });
+  }
+});
+
+test('export refuses a .JSONL output path too (the same file as the log on case-insensitive disks)', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    const log = join(tmp, `${A}.jsonl`);
+    copyFileSync(join(FIXTURES, '-Users-dev-acme-api', `${A}.jsonl`), log);
+    const before = readFileSync(log, 'utf8');
+    const r = run('export', log, '--dir', join(tmp, 'none'), '-o', log.replace(/jsonl$/, 'JSONL'));
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /refusing to write/);
+    assert.equal(readFileSync(log, 'utf8'), before);
+  } finally {
+    rmSync(tmp, { recursive: true });
+  }
+});
+
+test('export refuses the log folder spelled in other letter case (case-insensitive disks)', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    const logs = join(tmp, 'logs');
+    mkdirSync(join(logs, 'p'), { recursive: true });
+    copyFileSync(join(FIXTURES, '-Users-dev-acme-api', `${A}.jsonl`), join(logs, 'p', `${A}.jsonl`));
+    const shouted = join(tmp, 'LOGS');
+    if (!existsSync(shouted)) return; // case-sensitive disk: LOGS is another folder
+    const r = run('export', A, '--dir', logs, '-o', join(shouted, 'p', 'out.md'));
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /refusing to write inside a log folder/);
+    assert.ok(!existsSync(join(logs, 'p', 'out.md')));
+  } finally {
+    rmSync(tmp, { recursive: true });
+  }
 });
