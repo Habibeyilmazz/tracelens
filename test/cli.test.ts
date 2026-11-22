@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -145,6 +145,22 @@ test('export refuses the log folder spelled in other letter case (case-insensiti
     assert.equal(r.status, 1);
     assert.match(r.stderr, /refusing to write inside a log folder/);
     assert.ok(!existsSync(join(logs, 'p', 'out.md')));
+  } finally {
+    rmSync(tmp, { recursive: true });
+  }
+});
+
+test('list does not pass terminal escape sequences from a log through to the terminal', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'tracelens-'));
+  try {
+    mkdirSync(join(tmp, 'p'));
+    // OSC 0 sets the window title; OSC 52 could write the clipboard. Both arrive inside the first prompt.
+    const prompt = 'fix \u001b]0;owned\u0007 the \u001b[31mbuild\u001b[0m \u009b2J';
+    writeFileSync(join(tmp, 'p', 's.jsonl'), JSON.stringify({ type: 'user', timestamp: '2026-03-08T09:30:00Z', cwd: '/w\u001b[2J', message: { content: prompt } }) + '\n');
+    const r = run('list', '--dir', tmp);
+    assert.equal(r.status, 0, r.stderr);
+    assert.doesNotMatch(r.stdout, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/);
+    assert.match(r.stdout, /fix .*the .*build/);
   } finally {
     rmSync(tmp, { recursive: true });
   }
