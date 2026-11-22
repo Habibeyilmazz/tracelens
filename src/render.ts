@@ -78,6 +78,7 @@ code,.mono{font-family:var(--mono);font-size:.86em}
 .est{font-size:.82rem;color:var(--muted)}
 .row{display:grid;grid-template-columns:3.6rem minmax(0,1fr);gap:.8rem;margin:.3rem 0}
 .row{scroll-margin:5rem}
+@media screen{.tx>.row{content-visibility:auto;contain-intrinsic-size:auto 3rem}}
 .row>.t{color:var(--faint);font:12px/1.5 var(--mono);text-align:right;text-decoration:none;padding-top:.5rem}
 .row>.t:hover{color:var(--accent)}
 .role{font-size:.76rem;font-weight:600;color:var(--muted);margin:0 0 .15rem}
