@@ -37,6 +37,8 @@ test('session list renders both sessions with security headers', async () => {
   assert.equal(r.headers['x-content-type-options'], 'nosniff');
   const sorted = await get('/?sort=cost');
   assert.ok(sorted.body.indexOf('Write a short about page') < sorted.body.indexOf('Add health check endpoint'));
+  assert.match(sorted.body, /<th class="num" aria-sort="descending">Est\. cost/);
+  assert.match(sorted.body, /<option value="cost" selected>/);
   const filtered = await get('/?project=%2FUsers%2Fdev%2Facme-api');
   assert.doesNotMatch(filtered.body, /Write a short about page/);
 });

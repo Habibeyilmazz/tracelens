@@ -111,7 +111,8 @@ function session(cwd: string, prompt: string, start: number) {
     tool('Bash', { command: p.test, description: 'Run the checks again' }, 'Tests: 24 passed\nTime: 6.3s', int(4000, 30000));
   }
   if (rand() < 0.2) tool('WebFetch', { url: 'https://example.com/docs/changelog', prompt: 'What changed in the latest release?' }, 'Request failed with status 503', int(2000, 9000), true);
-  assistant([{ type: 'text', text: `Done. ${prompt.replace(/\.$/, '')}: changes are in ${files.slice(0, 2).join(' and ')}, and the checks pass.` }]);
+  const changed = [...new Set(files.slice(0, 2))].map((f) => `- \`${f}\`: reads \`config.timeoutMs\` instead of a hard-coded **5000**`).join('\n');
+  assistant([{ type: 'text', text: `Done. ${prompt.replace(/\.$/, '')}.\n\n## Changes\n${changed}\n\n## Checks\n\`\`\`\n$ ${p.test}\nTests: 24 passed\n\`\`\`\n\nThe old value stays as the *fallback*, so nothing changes for callers that do not set it.` }]);
   lines.push({ type: 'summary', summary: prompt, leafUuid: parent });
   return { id, lines };
 }

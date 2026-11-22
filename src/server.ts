@@ -94,7 +94,8 @@ export function createHandler(store: Store, pricing: Pricing) {
       return send(404, page('Not found', `<h1>Page not found</h1><p><a href="/">Back to sessions</a></p>`, 'sessions'));
     } catch (err) {
       console.error(err);
-      if (!res.headersSent) send(500, `Internal error: ${(err as Error).message}`, 'text/plain; charset=utf-8');
+      if (!res.headersSent)
+        send(500, page('Error', `<h1>This page could not be shown</h1><p class="empty">tracelens hit an error: <code>${esc((err as Error).message)}</code>. The details are in the terminal running <code>tracelens serve</code>.</p>`, 'sessions'));
       else res.end();
     }
   };

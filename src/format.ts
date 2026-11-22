@@ -1,5 +1,8 @@
 // Small display helpers shared by the web UI and the exporters.
 
+const ENT: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+export const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => ENT[c]);
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export function fmtDate(ts: number): string {

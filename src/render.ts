@@ -1,13 +1,14 @@
 // Server-side HTML for the web UI and the self-contained HTML export.
 // Everything that comes from a log file goes through esc(): transcripts are untrusted input.
 
-import { fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
+import { esc, fmtDate, fmtDuration, fmtOffset, fmtTokens, fmtUSD, oneLine, pretty, shortModel, shortPath, toolLabel } from './format.js';
 import type { Insights, Row, SessionStats } from './insights.js';
 import type { Hit } from './search.js';
 import { isErrorItem, sessionItems, sessionToolCalls, totalTokens, type Item, type Session, type Subagent, type Usage } from './types.js';
 
-const ENT: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-export const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => ENT[c]);
+import { mdToHtml } from './mdhtml.js';
+
+export { esc };
 const qs = (params: Record<string, string | undefined>) => {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) p.set(k, v);
@@ -16,14 +17,17 @@ const qs = (params: Record<string, string | undefined>) => {
 };
 
 export const CSS = `
-:root{--bg:#f3f4f6;--panel:#fff;--ink:#18202a;--muted:#59636f;--faint:#7d8691;--rule:#dce0e6;--accent:#2b4fc0;--accent-soft:#e9eefc;--tool:#0d6e61;--tool-soft:#e3f2ef;--err:#b3261e;--err-soft:#fcebe9;--mark:#ffe18a;
+:root{--bg:#f3f4f6;--panel:#fff;--ink:#18202a;--muted:#59636f;--faint:#646d79;--rule:#dce0e6;--control:#868e99;--accent:#2b4fc0;--accent-soft:#e9eefc;--tool:#0d6e61;--tool-soft:#e3f2ef;--err:#b3261e;--err-soft:#fcebe9;--mark:#ffe18a;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1216;--panel:#161a20;--ink:#e3e7ec;--muted:#a0a9b5;--faint:#78818d;--rule:#2a3039;--accent:#93a9ff;--accent-soft:#1b2440;--tool:#62c9b5;--tool-soft:#13292a;--err:#ff9189;--err-soft:#3b1e1d;--mark:#6e5b10;color-scheme:dark}}
-:root[data-theme=dark]{--bg:#0f1216;--panel:#161a20;--ink:#e3e7ec;--muted:#a0a9b5;--faint:#78818d;--rule:#2a3039;--accent:#93a9ff;--accent-soft:#1b2440;--tool:#62c9b5;--tool-soft:#13292a;--err:#ff9189;--err-soft:#3b1e1d;--mark:#6e5b10;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1216;--panel:#161a20;--ink:#e3e7ec;--muted:#a0a9b5;--faint:#858e9a;--rule:#2a3039;--control:#646d79;--accent:#93a9ff;--accent-soft:#1b2440;--tool:#62c9b5;--tool-soft:#13292a;--err:#ff9189;--err-soft:#3b1e1d;--mark:#6e5b10;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0f1216;--panel:#161a20;--ink:#e3e7ec;--muted:#a0a9b5;--faint:#858e9a;--rule:#2a3039;--control:#646d79;--accent:#93a9ff;--accent-soft:#1b2440;--tool:#62c9b5;--tool-soft:#13292a;--err:#ff9189;--err-soft:#3b1e1d;--mark:#6e5b10;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
 a{color:var(--accent);text-underline-offset:2px}
-.top{display:flex;gap:1.25rem;align-items:center;padding:.55rem 1rem;border-bottom:1px solid var(--rule);background:var(--panel);flex-wrap:wrap}
+.top{border-bottom:1px solid var(--rule);background:var(--panel)}
+.top>div{display:flex;gap:1.25rem;align-items:center;padding:.55rem 1rem;flex-wrap:wrap;max-width:1180px;margin:0 auto}
+.skip{position:absolute;left:-999px;top:.5rem;z-index:1;background:var(--panel);padding:.3rem .6rem;border-radius:6px}
+.skip:focus{left:1rem}
 .brand{display:flex;align-items:center;gap:.45rem;font-weight:700;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
 .brand svg{color:var(--accent)}
 .top nav{display:flex;gap:1rem}
@@ -31,7 +35,8 @@ a{color:var(--accent);text-underline-offset:2px}
 .top nav a[aria-current=page]{color:var(--ink);border-color:var(--accent)}
 .top form{margin-left:auto;display:flex;gap:.4rem;flex:1 1 16rem;max-width:26rem}
 .top input{flex:1;min-width:0}
-input,select,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:.3rem .55rem}
+input,select,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--control);border-radius:6px;padding:.3rem .55rem}
+input[type=checkbox]{accent-color:var(--accent);width:1rem;height:1rem;margin:0}
 button{cursor:pointer;background:var(--panel)}
 button:hover,select:hover{border-color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -68,12 +73,23 @@ code,.mono{font-family:var(--mono);font-size:.86em}
 .toolbar label{font-size:.9rem;color:var(--muted);display:flex;gap:.3rem;align-items:center}
 .est{font-size:.82rem;color:var(--muted)}
 .row{display:grid;grid-template-columns:3.6rem minmax(0,1fr);gap:.8rem;margin:.3rem 0}
+.row{scroll-margin:5rem}
 .row>.t{color:var(--faint);font:12px/1.5 var(--mono);text-align:right;text-decoration:none;padding-top:.5rem}
 .row>.t:hover{color:var(--accent)}
 .role{font-size:.76rem;font-weight:600;color:var(--muted);margin:0 0 .15rem}
 .msg{white-space:pre-wrap;overflow-wrap:anywhere;padding:.5rem .8rem;border-radius:8px}
 .k-user .msg{background:var(--accent-soft);border-left:3px solid var(--accent)}
 .k-assistant .msg{background:var(--panel);border:1px solid var(--rule)}
+.msg.md{white-space:normal}
+.md>*{margin:.55rem 0}.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
+.md>p,.md>ul,.md>ol,.md>blockquote,.md>.mh{max-width:80ch}
+.md ul,.md ol{padding-left:1.4rem}.md li>ul,.md li>ol{margin:.2rem 0}.md li+li{margin-top:.2rem}
+.md .mh{font-weight:650;margin-top:.9rem}
+.md blockquote{margin-left:0;padding-left:.8rem;border-left:3px solid var(--rule);color:var(--muted)}
+.md hr{border:0;border-top:1px solid var(--rule)}
+.md :not(pre)>code{background:var(--bg);border:1px solid var(--rule);padding:0 .3rem;border-radius:4px}
+.md pre code{font-size:inherit}
+.md .scroll{background:none;font-size:.92rem}.md th,.md td{padding:.3rem .6rem}
 .error .msg{border:1px solid var(--err);background:var(--err-soft)}
 .k-system .msg{color:var(--muted);font-size:.86rem;padding:.15rem .8rem}
 .k-system.error .msg{color:var(--err)}
@@ -92,7 +108,7 @@ details[open]>summary::before{content:"▾"}
 .tool.error .tname{color:var(--err)}
 .flag{font:600 11px var(--sans);color:var(--err);border:1px solid var(--err);border-radius:4px;padding:0 .3rem}
 .io{padding:.1rem .75rem .75rem}
-.io h4{font-size:.76rem;color:var(--muted);margin:.6rem 0 .25rem;font-weight:600}
+.io .lbl{font-size:.76rem;color:var(--muted);margin:.6rem 0 .25rem;font-weight:600}
 pre{margin:0;padding:.55rem .7rem;background:var(--bg);border:1px solid var(--rule);border-radius:6px;overflow:auto;max-height:30rem;font:12.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
 .tool.error pre.out{border-color:var(--err)}
 .subagent{margin:.7rem 0 .2rem;padding:.3rem 0 .1rem .7rem;border-left:2px dashed var(--tool)}
@@ -105,6 +121,8 @@ pre{margin:0;padding:.55rem .7rem;background:var(--bg);border:1px solid var(--ru
 mark{background:var(--mark);color:inherit;border-radius:2px}
 .hits{list-style:none;padding:0;margin:0}
 .hits>li{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:.7rem .9rem;margin:0 0 .7rem}
+.hits>li>a{color:var(--ink);text-decoration:none;font-weight:600}
+.hits>li>a:hover{text-decoration:underline}
 .hits ol{margin:.4rem 0 0;padding:0;list-style:none}
 .hits ol li{padding:.25rem 0;border-top:1px solid var(--rule);font-size:.9rem;overflow-wrap:anywhere}
 .hits ol a{color:var(--ink);text-decoration:none}
@@ -114,13 +132,21 @@ mark{background:var(--mark);color:inherit;border-radius:2px}
 .chart svg{display:block;width:100%;height:auto}
 .chart .b{fill:var(--accent)}
 .chart .b:hover{fill:var(--tool)}
-.chart text{fill:var(--faint);font:11px var(--sans)}
+.chart text{fill:var(--faint);font:12px var(--sans)}
 .chart line{stroke:var(--rule)}
 .hbar{display:inline-block;height:8px;border-radius:4px;background:var(--tool);vertical-align:middle;margin-right:.4rem}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,30rem),1fr));gap:0 1.5rem}
 .empty{background:var(--panel);border:1px dashed var(--rule);border-radius:8px;padding:1.2rem}
 footer.export{margin-top:3rem;color:var(--faint);font-size:.82rem}
-@media (max-width:640px){.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
+@media (max-width:640px){
+table.list,table.list tbody{display:block}table.list thead{display:none}
+table.list tr{display:flex;flex-wrap:wrap;gap:.1rem 1.1rem;padding:.75rem .9rem;border-bottom:1px solid var(--rule)}
+table.list tr:last-child{border-bottom:0}
+table.list td{display:block;border:0;padding:0;text-align:left}
+table.list td.title{order:-1;flex-basis:100%;min-width:0;margin-bottom:.15rem}
+table.list td.when{flex-basis:100%;color:var(--muted);font-size:.85rem}
+table.list td.num::before{content:attr(data-label) " ";color:var(--muted);font-size:.8rem;font-weight:400}
+.row{grid-template-columns:minmax(0,1fr);gap:0}.row>.t{text-align:left;padding:0}.subagent .row{grid-template-columns:minmax(0,1fr)}.top form{margin-left:0;max-width:none}}
 `;
 
 // Opens the collapsed ancestors of a linked item, and wires the expand/collapse buttons.
@@ -139,15 +165,16 @@ export function page(title: string, body: string, nav: Nav, q = ''): string {
   const cur = (n: Nav) => (n === nav ? ' aria-current="page"' : '');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} · tracelens</title><link rel="icon" href="data:,"><style>${CSS}</style></head><body>
-<header class="top"><a class="brand" href="/">${LOGO}tracelens</a>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div><a class="brand" href="/">${LOGO}tracelens</a>
 <nav aria-label="Main"><a href="/"${cur('sessions')}>Sessions</a><a href="/insights"${cur('insights')}>Insights</a></nav>
-<form action="/search" method="get" role="search"><input type="search" name="q" value="${esc(q)}" placeholder="Search all sessions" aria-label="Search all sessions"><button>Search</button></form></header>
-<main>${body}</main><script src="/app.js" defer></script></body></html>`;
+<form action="/search" method="get" role="search"><input type="search" name="q" value="${esc(q)}" placeholder="Search all sessions" aria-label="Search all sessions"><button>Search</button></form></div></header>
+<main id="main">${body}</main><script src="/app.js" defer></script></body></html>`;
 }
 
 function tokensCell(u: Usage): string {
   const t = `Input ${u.input.toLocaleString('en-US')}\nOutput ${u.output.toLocaleString('en-US')}\nCache write ${u.cacheWrite.toLocaleString('en-US')}\nCache read ${u.cacheRead.toLocaleString('en-US')}`;
-  return `<td class="num" title="${esc(t)}">${fmtTokens(totalTokens(u))}</td>`;
+  return `<td class="num" title="${esc(t)}" data-label="Tokens">${fmtTokens(totalTokens(u))}</td>`;
 }
 
 // Collapses whitespace but keeps it at the edges, so a snippet still reads around its <mark>.
@@ -164,15 +191,18 @@ export interface ListQuery {
 }
 
 export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects: string[], q: ListQuery): string {
-  const sortLink = (key: string, label: string) =>
-    q.sort === key ? `${label} <span aria-hidden="true">↓</span>` : `<a href="/${qs({ project: q.project, sort: key })}">${label}</a>`;
+  const SORTS: [string, string][] = [['date', 'Started'], ['duration', 'Duration'], ['tokens', 'Tokens'], ['cost', 'Est. cost']];
+  const sortTh = (key: string, label: string, cls = '') =>
+    q.sort === key
+      ? `<th${cls} aria-sort="descending">${label} <span aria-hidden="true">↓</span></th>`
+      : `<th${cls}><a href="/${qs({ project: q.project, sort: key })}">${label}</a></th>`;
   const body = rows
     .map(({ s, st }) => {
       const sub = [esc(shortPath(s.project)), ...s.models.map((m) => `<span class="chip">${esc(shortModel(m))}</span>`)].join(' ');
-      return `<tr><td class="nowrap">${fmtDate(s.start)}</td>
+      return `<tr><td class="nowrap when">${fmtDate(s.start)}</td>
 <td class="title"><a href="/session/${encodeURIComponent(s.id)}">${esc(s.title)}</a><div class="sub-line" title="${esc(s.project)}">${sub}</div></td>
-<td class="num">${fmtDuration(s.end - s.start)}</td>${tokensCell(st.usage)}<td class="num">${costText(st)}</td>
-<td class="num">${st.tools}</td><td class="num${st.errors ? ' bad' : ''}">${st.errors}</td></tr>`;
+<td class="num" data-label="Duration">${fmtDuration(s.end - s.start)}</td>${tokensCell(st.usage)}<td class="num" data-label="Cost">${costText(st)}</td>
+<td class="num" data-label="Tools">${st.tools}</td><td class="num${st.errors ? ' bad' : ''}" data-label="Errors">${st.errors}</td></tr>`;
     })
     .join('');
   const options = projects.map((p) => `<option value="${esc(p)}"${p === q.project ? ' selected' : ''}>${esc(p)}</option>`).join('');
@@ -183,11 +213,11 @@ export function sessionsPage(rows: { s: Session; st: SessionStats }[], projects:
     'Sessions',
     `<h1>Sessions <span class="muted">${rows.length}</span></h1>
 <form class="filters" method="get" action="/"><label>Project <select name="project" data-autosubmit><option value="">All projects</option>${options}</select></label>
-<input type="hidden" name="sort" value="${esc(q.sort)}"><noscript><button>Filter</button></noscript></form>
+<label>Sort by <select name="sort" data-autosubmit>${SORTS.map(([k, l]) => `<option value="${k}"${k === q.sort ? ' selected' : ''}>${l}</option>`).join('')}</select></label><noscript><button>Apply</button></noscript></form>
 ${
   rows.length
-    ? `<div class="scroll"><table><thead><tr><th>${sortLink('date', 'Started')}</th><th>Session</th><th class="num">${sortLink('duration', 'Duration')}</th>
-<th class="num">${sortLink('tokens', 'Tokens')}</th><th class="num">${sortLink('cost', 'Est. cost')}</th><th class="num">Tool calls</th><th class="num">Errors</th></tr></thead><tbody>${body}</tbody></table></div>
+    ? `<div class="scroll"><table class="list"><thead><tr>${sortTh('date', 'Started')}<th>Session</th>${sortTh('duration', 'Duration', ' class="num"')}
+${sortTh('tokens', 'Tokens', ' class="num"')}${sortTh('cost', 'Est. cost', ' class="num"')}<th class="num">Tool calls</th><th class="num">Errors</th></tr></thead><tbody>${body}</tbody></table></div>
 <p class="est">Costs are estimates from list prices in pricing.json, not a bill.${rows.some((r) => r.st.unpriced) ? ' * Includes tokens from a model with no price in pricing.json.' : ''}</p>`
     : empty
 }`,
@@ -267,6 +297,11 @@ function clip(text: string, max: number): string {
   return `${esc(text.slice(0, max))}\n<span class="muted">… ${(text.length - max).toLocaleString('en-US')} more characters. Export the session to see all of it.</span>`;
 }
 
+function clipMd(text: string, max: number): string {
+  if (!max || text.length <= max) return mdToHtml(text);
+  return `${mdToHtml(text.slice(0, max))}<p class="muted">… ${(text.length - max).toLocaleString('en-US')} more characters. Export the session to see all of it.</p>`;
+}
+
 export function transcript(s: Session, opts: TxOpts): string {
   const maxMs = Math.max(1, ...sessionToolCalls(s).map((c) => c.durationMs ?? 0));
   const ctx = { s, opts, maxMs };
@@ -300,7 +335,7 @@ function body(it: Item, ctx: Ctx): string {
     case 'user':
       return `<div class="role">User</div><div class="msg">${clip(it.text, max)}</div>`;
     case 'assistant':
-      return `<div class="role">Assistant${it.error ? ' · API error' : ''}</div><div class="msg">${clip(it.text, max)}</div>`;
+      return `<div class="role">Assistant${it.error ? ' · API error' : ''}</div><div class="msg md">${clipMd(it.text, max)}</div>`;
     case 'thinking':
       return `<details class="quiet"><summary>Thinking</summary><div class="msg">${clip(it.text, max)}</div></details>`;
     case 'system':
@@ -311,9 +346,9 @@ function body(it: Item, ctx: Ctx): string {
       const w = it.durationMs === undefined ? 0 : Math.max(2, Math.round(56 * Math.sqrt(it.durationMs / ctx.maxMs)));
       const dur = it.durationMs === undefined ? '' : `<span class="dur"><span class="bar" style="width:${w}px"></span>${fmtDuration(it.durationMs)}</span>`;
       const output =
-        it.output === undefined ? `<h4>Output</h4><p class="muted">No result was recorded.</p>` : `<h4>Output${it.isError ? ' (error)' : ''}</h4><pre class="out">${clip(it.output, max)}</pre>`;
+        it.output === undefined ? `<div class="lbl">Output</div><p class="muted">No result was recorded.</p>` : `<div class="lbl">Output${it.isError ? ' (error)' : ''}</div><pre class="out">${clip(it.output, max)}</pre>`;
       return `<details class="tool${it.isError ? ' error' : ''}"><summary><span class="tname">${esc(it.name)}</span><span class="targ">${esc(toolLabel(it.input))}</span>${it.isError ? '<span class="flag">error</span>' : ''}${dur}</summary>
-<div class="io"><h4>Input</h4><pre>${clip(pretty(it.input), max)}</pre>${output}${it.subagent ? subagent(it.subagent, ctx) : ''}</div></details>`;
+<div class="io"><div class="lbl">Input</div><pre>${clip(pretty(it.input), max)}</pre>${output}${it.subagent ? subagent(it.subagent, ctx) : ''}</div></details>`;
     }
   }
 }
@@ -353,7 +388,7 @@ function usageTable(rows: Row[], keyLabel: string, keyCell: (r: Row) => string):
 ${rows
   .map(
     (r) =>
-      `<tr><td>${keyCell(r)}</td><td class="num">${r.sessions}</td><td class="num">${fmtTokens(r.usage.input)}</td><td class="num">${fmtTokens(r.usage.output)}</td><td class="num">${fmtTokens(r.usage.cacheWrite)}</td><td class="num">${fmtTokens(r.usage.cacheRead)}</td><td class="num">${fmtUSD(r.cost)}</td></tr>`,
+      `<tr><td class="nowrap">${keyCell(r)}</td><td class="num">${r.sessions}</td><td class="num">${fmtTokens(r.usage.input)}</td><td class="num">${fmtTokens(r.usage.output)}</td><td class="num">${fmtTokens(r.usage.cacheWrite)}</td><td class="num">${fmtTokens(r.usage.cacheRead)}</td><td class="num">${fmtUSD(r.cost)}</td></tr>`,
   )
   .join('')}</tbody></table></div>`;
 }

@@ -114,3 +114,18 @@ test('search results count every session, list the top 100 and say so', () => {
   assert.match(html, /Showing the 100 sessions with the most matches/);
   assert.equal(html.match(/href="\/session\/s\d+"/g)!.length, 100);
 });
+
+test('assistant text is rendered as Markdown, user text stays as typed', () => {
+  const { a } = fixtureSessions();
+  const s: Session = {
+    ...a,
+    orphanSubagents: [],
+    items: [
+      { kind: 'user', n: 0, ts: a.start, text: 'keep **this** literal' },
+      { kind: 'assistant', n: 1, ts: a.start, text: '## Plan\n- **one** `two`\n\n<img src=x onerror=alert(1)>', model: 'm', error: false },
+    ],
+  };
+  const html = exportHtml(s, sessionStats(s, pricing));
+  assert.match(html, /<div class="msg">keep \*\*this\*\* literal<\/div>/);
+  assert.match(html, /<div class="msg md"><p class="mh">Plan<\/p><ul><li><strong>one<\/strong> <code>two<\/code><\/li><\/ul><p>&lt;img src=x/);
+});
